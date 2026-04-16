@@ -431,17 +431,15 @@ pub fn prepare_tls(bundle: &TlsBundle) -> AppResult<Option<Map<String, Value>>> 
             if let Some(public_key) = reality.get("public_key") {
                 client_reality.insert("public_key".to_string(), public_key.clone());
             }
-            if output.get("server_name").and_then(Value::as_str).unwrap_or_default().is_empty() {
-                if let Some(server_name) = reality
+            if output.get("server_name").and_then(Value::as_str).unwrap_or_default().is_empty()
+                && let Some(server_name) = reality
                     .get("handshake")
                     .and_then(Value::as_object)
                     .and_then(|handshake| handshake.get("server"))
                     .and_then(Value::as_str)
                     .filter(|value| !value.is_empty())
-                {
-                    output
-                        .insert("server_name".to_string(), Value::String(server_name.to_string()));
-                }
+            {
+                output.insert("server_name".to_string(), Value::String(server_name.to_string()));
             }
             if let Some(short_id) = pick_first_short_id(reality.get("short_id")) {
                 client_reality.insert("short_id".to_string(), Value::String(short_id));
@@ -829,12 +827,12 @@ fn vless_links(
         .iter()
         .map(|addr| {
             let mut params = base_params.clone();
-            if let Some(tls) = addr.tls.as_ref() {
-                if tls.get("enabled").and_then(Value::as_bool).unwrap_or(false) {
-                    push_tls_params(&mut params, tls, "allowInsecure");
-                    if let Some(flow) = get_optional_string(config, "flow") {
-                        params.push(("flow".to_string(), flow));
-                    }
+            if let Some(tls) = addr.tls.as_ref()
+                && tls.get("enabled").and_then(Value::as_bool).unwrap_or(false)
+            {
+                push_tls_params(&mut params, tls, "allowInsecure");
+                if let Some(flow) = get_optional_string(config, "flow") {
+                    params.push(("flow".to_string(), flow));
                 }
             }
             add_params(
@@ -858,10 +856,10 @@ fn trojan_links(
         .iter()
         .map(|addr| {
             let mut params = base_params.clone();
-            if let Some(tls) = addr.tls.as_ref() {
-                if tls.get("enabled").and_then(Value::as_bool).unwrap_or(false) {
-                    push_tls_params(&mut params, tls, "allowInsecure");
-                }
+            if let Some(tls) = addr.tls.as_ref()
+                && tls.get("enabled").and_then(Value::as_bool).unwrap_or(false)
+            {
+                push_tls_params(&mut params, tls, "allowInsecure");
             }
             add_params(
                 &format!("trojan://{password}@{}:{}", addr.server, addr.server_port),
@@ -1155,13 +1153,13 @@ fn pick_first_short_id(value: Option<&Value>) -> Option<String> {
 }
 
 pub fn split_host_port(host: &str) -> String {
-    if let Ok(url) = Url::parse(&format!("http://{host}")) {
-        if let Some(parsed_host) = url.host_str() {
-            if parsed_host.contains(':') {
-                return format!("[{parsed_host}]");
-            }
-            return parsed_host.to_string();
+    if let Ok(url) = Url::parse(&format!("http://{host}"))
+        && let Some(parsed_host) = url.host_str()
+    {
+        if parsed_host.contains(':') {
+            return format!("[{parsed_host}]");
         }
+        return parsed_host.to_string();
     }
 
     if let Some(stripped) =
@@ -1170,10 +1168,11 @@ pub fn split_host_port(host: &str) -> String {
         return format!("[{stripped}]");
     }
 
-    if let Some((left, right)) = host.rsplit_once(':') {
-        if right.chars().all(|ch| ch.is_ascii_digit()) && !left.contains(':') {
-            return left.to_string();
-        }
+    if let Some((left, right)) = host.rsplit_once(':')
+        && right.chars().all(|ch| ch.is_ascii_digit())
+        && !left.contains(':')
+    {
+        return left.to_string();
     }
 
     host.to_string()
@@ -1182,10 +1181,10 @@ pub fn split_host_port(host: &str) -> String {
 pub fn decode_base64_or_plain(value: &str) -> Cow<'_, str> {
     let trimmed = value.trim();
     for engine in [STANDARD, URL_SAFE, URL_SAFE_NO_PAD] {
-        if let Ok(decoded) = engine.decode(trimmed) {
-            if let Ok(decoded) = String::from_utf8(decoded) {
-                return Cow::Owned(decoded);
-            }
+        if let Ok(decoded) = engine.decode(trimmed)
+            && let Ok(decoded) = String::from_utf8(decoded)
+        {
+            return Cow::Owned(decoded);
         }
     }
     Cow::Borrowed(trimmed)
@@ -1288,10 +1287,10 @@ fn filter_subscription_inbounds(
         return Ok(inbounds);
     };
 
-    if let Ok(id) = inbound_ref.parse::<i64>() {
-        if let Some(inbound) = inbounds.iter().find(|inbound| inbound.id == id) {
-            return Ok(vec![inbound.clone()]);
-        }
+    if let Ok(id) = inbound_ref.parse::<i64>()
+        && let Some(inbound) = inbounds.iter().find(|inbound| inbound.id == id)
+    {
+        return Ok(vec![inbound.clone()]);
     }
     if let Some(inbound) = inbounds.iter().find(|inbound| inbound.tag == inbound_ref) {
         return Ok(vec![inbound.clone()]);
@@ -1327,10 +1326,10 @@ fn build_local_outbounds(
         if protocol == "shadowsocks" {
             let method = options.get("method").and_then(Value::as_str).unwrap_or_default();
             let mut passwords = Vec::new();
-            if method.starts_with("2022") {
-                if let Some(password) = options.get("password").and_then(Value::as_str) {
-                    passwords.push(password.to_string());
-                }
+            if method.starts_with("2022")
+                && let Some(password) = options.get("password").and_then(Value::as_str)
+            {
+                passwords.push(password.to_string());
             }
             let config_key =
                 if method == "2022-blake3-aes-128-gcm" { "shadowsocks16" } else { "shadowsocks" };
@@ -1668,10 +1667,10 @@ fn convert_to_clash_meta(outbounds: &[Value], basic_config: &str) -> AppResult<S
                     proxy.insert("alterId".to_string(), json!(0));
                     proxy.insert("cipher".to_string(), Value::String("auto".to_string()));
                 }
-                if kind == "vless" {
-                    if let Some(flow) = ob.get("flow") {
-                        proxy.insert("flow".to_string(), flow.clone());
-                    }
+                if kind == "vless"
+                    && let Some(flow) = ob.get("flow")
+                {
+                    proxy.insert("flow".to_string(), flow.clone());
                 }
                 if kind == "tuic" {
                     if let Some(password) = ob.get("password") {

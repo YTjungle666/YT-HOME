@@ -758,11 +758,11 @@ async fn stop_probe_process(child: &mut Child) -> AppResult<()> {
 
 fn enrich_probe_error(error: AppError, logs: &Arc<Mutex<Vec<String>>>) -> String {
     let mut message = error.message();
-    if let Ok(buffer) = logs.try_lock() {
-        if !buffer.is_empty() {
-            message.push_str(" | probe logs: ");
-            message.push_str(&buffer.join(" | "));
-        }
+    if let Ok(buffer) = logs.try_lock()
+        && !buffer.is_empty()
+    {
+        message.push_str(" | probe logs: ");
+        message.push_str(&buffer.join(" | "));
     }
     message
 }

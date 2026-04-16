@@ -164,10 +164,10 @@ impl SettingsService {
 
     pub async fn get_final_sub_uri(&self, host: &str) -> AppResult<String> {
         let settings = self.public_settings().await?;
-        if let Some(sub_uri) = settings.get("subURI") {
-            if !sub_uri.is_empty() {
-                return Ok(sub_uri.clone());
-            }
+        if let Some(sub_uri) = settings.get("subURI")
+            && !sub_uri.is_empty()
+        {
+            return Ok(sub_uri.clone());
         }
 
         let protocol = if settings.get("subKeyFile").is_some_and(|value| !value.is_empty())
@@ -939,10 +939,11 @@ fn build_runtime_inbound_users(
             _ => continue,
         };
 
-        if row.kind == "vless" && !inbound.contains_key("tls") {
-            if let Some(Value::String(flow)) = user.get_mut("flow") {
-                *flow = flow.replace("xtls-rprx-vision", "");
-            }
+        if row.kind == "vless"
+            && !inbound.contains_key("tls")
+            && let Some(Value::String(flow)) = user.get_mut("flow")
+        {
+            *flow = flow.replace("xtls-rprx-vision", "");
         }
 
         users.push(Value::Object(user));
