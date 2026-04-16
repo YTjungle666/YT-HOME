@@ -41,11 +41,14 @@ ENV SUI_MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata openrc \
     && mkdir -p /app/db
+COPY --chmod=755 scripts/container-init.sh /usr/local/bin/container-init
 COPY --chmod=755 --from=backend-builder /app/sui /app/sui
 COPY --chmod=755 --from=singbox-fetcher /opt/sing-box/ /app/
 COPY --from=front-builder /app/frontend/dist/ /app/web/
 COPY crates/infra-db/migrations/ /app/migrations/
 COPY --chmod=755 packaging/openrc/sui /etc/init.d/s-ui
-RUN rc-update add s-ui default
+RUN rc-update add s-ui default \
+    && rm -f /sbin/init \
+    && cp /usr/local/bin/container-init /sbin/init
 EXPOSE 80 2096
-ENTRYPOINT ["/app/sui"]
+CMD ["/usr/local/bin/container-init"]
