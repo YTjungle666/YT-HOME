@@ -18,7 +18,7 @@ concurrency:
 
 env:
   SING_BOX_VERSION: "1.13.5"
-  IMAGE_NAME: ghcr.io/ytjungle666/yt-home-rust
+  IMAGE_NAME: ghcr.io/ytjungle666/yt-home
 
 jobs:
   publish:

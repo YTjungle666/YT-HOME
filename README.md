@@ -1,9 +1,9 @@
 # YT HOME RUST
 
-![Release](https://img.shields.io/github/v/release/YTjungle666/YT-HOME-RUST?display_name=tag)
-![CI](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME-RUST/ci.yml?branch=main&label=ci)
-![Docker](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME-RUST/docker.yml?branch=main&label=docker)
-![License](https://img.shields.io/github/license/YTjungle666/YT-HOME-RUST)
+![Release](https://img.shields.io/github/v/release/YTjungle666/YT-HOME?display_name=tag)
+![CI](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/ci.yml?branch=main&label=ci)
+![Docker](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/docker.yml?branch=main&label=docker)
+![License](https://img.shields.io/github/license/YTjungle666/YT-HOME)
 
 `YT HOME RUST` 是一个面向家庭网络回家场景的 `sing-box` 控制面板。  
 它把入站、客户端、二维码、订阅、TLS / Reality、运行状态和访问边界统一到一个中文面板里，适合部署在家庭服务器、`PVE`、`NAS` 和小主机上。
@@ -38,13 +38,13 @@
 直接安装最新版：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME-RUST/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh)
 ```
 
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME-RUST/main/install.sh) v2.0.0
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.0
 ```
 
 说明：
@@ -60,26 +60,26 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME-RUST/main/
 镜像地址：
 
 ```text
-ghcr.io/ytjungle666/yt-home-rust
+ghcr.io/ytjungle666/yt-home
 ```
 
 直接运行：
 
 ```bash
 docker run -d \
-  --name yt-home-rust \
+  --name yt-home \
   --restart unless-stopped \
   -p 80:80 \
   -p 2096:2096 \
   -v $(pwd)/db:/app/db \
-  ghcr.io/ytjungle666/yt-home-rust:latest
+  ghcr.io/ytjungle666/yt-home:latest
 ```
 
 使用 Compose：
 
 ```bash
-mkdir -p yt-home-rust && cd yt-home-rust
-curl -LO https://raw.githubusercontent.com/YTjungle666/YT-HOME-RUST/main/docker-compose.yml
+mkdir -p yt-home && cd yt-home
+curl -LO https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/docker-compose.yml
 docker compose up -d
 ```
 
@@ -90,14 +90,14 @@ docker compose up -d
 Release 页面会直接提供可创建 CT 的 rootfs 包：
 
 ```text
-yt-home-rust-ct-amd64-rootfs.tar.gz
+yt-home-ct-amd64-rootfs.tar.gz
 ```
 
 创建示例：
 
 ```bash
-pct create 210 local:vztmpl/yt-home-rust-ct-amd64-rootfs.tar.gz \
-  --hostname yt-home-rust \
+pct create 210 local:vztmpl/yt-home-ct-amd64-rootfs.tar.gz \
+  --hostname yt-home \
   --cores 2 \
   --memory 1024 \
   --rootfs local-lvm:8 \
@@ -115,9 +115,9 @@ pct start 210
 ## 发布产物
 
 - Linux 安装包：`s-ui-linux-amd64.tar.gz`
-- PVE CT rootfs：`yt-home-rust-ct-amd64-rootfs.tar.gz`
-- Docker 镜像：`ghcr.io/ytjungle666/yt-home-rust`
-- Release 页面：<https://github.com/YTjungle666/YT-HOME-RUST/releases>
+- PVE CT rootfs：`yt-home-ct-amd64-rootfs.tar.gz`
+- Docker 镜像：`ghcr.io/ytjungle666/yt-home`
+- Release 页面：<https://github.com/YTjungle666/YT-HOME/releases>
 
 ## 使用建议
 

@@ -34,7 +34,7 @@ RUN sh /usr/local/bin/fetch-sing-box linux amd64 /opt/sing-box "${SING_BOX_VERSI
 FROM alpine:3.22
 LABEL org.opencontainers.image.title="YT HOME RUST"
 LABEL org.opencontainers.image.description="Rust control plane for sing-box based home access."
-LABEL org.opencontainers.image.source="https://github.com/YTjungle666/YT-HOME-RUST"
+LABEL org.opencontainers.image.source="https://github.com/YTjungle666/YT-HOME"
 LABEL org.opencontainers.image.licenses="GPL-3.0-only"
 ENV SUI_WEB_DIR=/app/web
 ENV SUI_MIGRATIONS_DIR=/app/migrations

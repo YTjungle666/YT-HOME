@@ -68,7 +68,7 @@ jobs:
 
       - name: Assemble CT rootfs bundle
         run: |
-          tar -C "$RUNNER_TEMP/export" -zcf yt-home-rust-ct-amd64-rootfs.tar.gz .
+          tar -C "$RUNNER_TEMP/export" -zcf yt-home-ct-amd64-rootfs.tar.gz .
 
       - name: Upload linux artifact
         uses: actions/upload-artifact@v7.0.0
@@ -81,8 +81,8 @@ jobs:
       - name: Upload CT rootfs artifact
         uses: actions/upload-artifact@v7.0.0
         with:
-          name: yt-home-rust-ct-amd64-rootfs
-          path: ./yt-home-rust-ct-amd64-rootfs.tar.gz
+          name: yt-home-ct-amd64-rootfs
+          path: ./yt-home-ct-amd64-rootfs.tar.gz
           retention-days: 30
           if-no-files-found: error
 
@@ -103,7 +103,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          file: yt-home-rust-ct-amd64-rootfs.tar.gz
-          asset_name: yt-home-rust-ct-amd64-rootfs.tar.gz
+          file: yt-home-ct-amd64-rootfs.tar.gz
+          asset_name: yt-home-ct-amd64-rootfs.tar.gz
           prerelease: false
           overwrite: true

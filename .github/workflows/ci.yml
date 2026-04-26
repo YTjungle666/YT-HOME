@@ -93,10 +93,10 @@ jobs:
 
       - name: Docker build smoke test
         run: |
-          docker build --build-arg SING_BOX_VERSION="${SING_BOX_VERSION}" -t yt-home-rust-ci .
-          docker rm -f yt-home-rust-ci-test >/dev/null 2>&1 || true
-          docker run -d --name yt-home-rust-ci-test -p 18081:80 yt-home-rust-ci
-          trap 'docker rm -f yt-home-rust-ci-test >/dev/null 2>&1 || true' EXIT
+          docker build --build-arg SING_BOX_VERSION="${SING_BOX_VERSION}" -t yt-home-ci .
+          docker rm -f yt-home-ci-test >/dev/null 2>&1 || true
+          docker run -d --name yt-home-ci-test -p 18081:80 yt-home-ci
+          trap 'docker rm -f yt-home-ci-test >/dev/null 2>&1 || true' EXIT
           for _ in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:18081/health >/dev/null; then
               break

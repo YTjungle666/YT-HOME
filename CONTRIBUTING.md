@@ -1,4 +1,4 @@
-# Contributing to YT HOME RUST
+# Contributing to YT HOME
 
 This repository now ships a Rust backend workspace and a Vue 3 frontend. Contributions are expected to keep the current UI and functional behavior stable while improving structure, safety, and maintainability.
 
@@ -12,8 +12,8 @@ This repository now ships a Rust backend workspace and a Vue 3 frontend. Contrib
 ## Local Setup
 
 ```bash
-git clone https://github.com/YTjungle666/YT-HOME-RUST
-cd YT-HOME-RUST
+git clone https://github.com/YTjungle666/YT-HOME
+cd YT-HOME
 ```
 
 Install frontend dependencies and build assets:
