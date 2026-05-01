@@ -36,10 +36,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: rustfmt, clippy
+        run: |
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component rustfmt --component clippy
+          rustup default "${RUST_TOOLCHAIN}"
 
       - name: Install musl toolchain
         run: |

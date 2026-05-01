@@ -35,7 +35,7 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v2.0.6`
+- 当前版本：`v2.0.7`
 - 当前发布平台：`linux/amd64`
 
 ## 部署方式 1：一键安装
@@ -51,7 +51,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.6
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.7
 ```
 
 说明：
