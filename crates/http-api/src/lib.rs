@@ -281,7 +281,7 @@ async fn get_db(
     let body = state.settings.export_database(&exclude_refs).await.map_err(api_error)?;
     download_response(
         "application/octet-stream",
-        &format!("s-ui_{}.db", file_timestamp().map_err(api_error)?),
+        &format!("YT-HOME_{}.db", file_timestamp().map_err(api_error)?),
         body,
     )
 }

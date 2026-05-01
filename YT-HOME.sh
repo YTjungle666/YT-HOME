@@ -233,19 +233,19 @@ uninstall() {
         fi
         return 0
     fi
-    service_stop_cmd s-ui >/dev/null 2>&1 || true
-    service_disable_cmd s-ui >/dev/null 2>&1 || true
-    rm /etc/systemd/system/s-ui.service -f
-    rm /etc/init.d/s-ui -f
+    service_stop_cmd YT-HOME >/dev/null 2>&1 || true
+    service_disable_cmd YT-HOME >/dev/null 2>&1 || true
+    rm /etc/systemd/system/YT-HOME.service -f
+    rm /etc/init.d/YT-HOME -f
     if [[ "${SERVICE_MANAGER}" == "systemd" ]]; then
         systemctl daemon-reload
         systemctl reset-failed
     fi
-    rm /etc/s-ui/ -rf
-    rm /usr/local/s-ui/ -rf
+    rm /etc/YT-HOME/ -rf
+    rm /usr/local/YT-HOME/ -rf
 
     echo ""
-    echo -e "Uninstalled Successfully, If you want to remove this script, then after exiting the script run ${green}rm /usr/local/s-ui -f${plain} to delete it."
+    echo -e "Uninstalled Successfully, If you want to remove this script, then after exiting the script run ${green}rm /usr/local/YT-HOME -f${plain} to delete it."
     echo ""
 
     if [[ $# == 0 ]]; then
@@ -257,7 +257,7 @@ reset_admin() {
     echo "It is not recommended to set admin's credentials to default!"
     confirm "Are you sure you want to reset admin's credentials to default ?" "n"
     if [[ $? == 0 ]]; then
-        /usr/local/s-ui/sui admin -reset
+        /usr/local/YT-HOME/YTHOME admin -reset
     fi
     before_show_menu
 }
@@ -266,19 +266,19 @@ set_admin() {
     echo "It is not recommended to set admin's credentials to a complex text."
     read -p "Please set up your username:" config_account
     read -p "Please set up your password:" config_password
-    /usr/local/s-ui/sui admin -username ${config_account} -password ${config_password}
+    /usr/local/YT-HOME/YTHOME admin -username "${config_account}" -password "${config_password}"
     before_show_menu
 }
 
 view_admin() {
-    /usr/local/s-ui/sui admin -show
+    /usr/local/YT-HOME/YTHOME admin -show
     before_show_menu
 }
 
 reset_setting() {
     confirm "Are you sure you want to reset settings to default ?" "n"
     if [[ $? == 0 ]]; then
-        /usr/local/s-ui/sui setting -reset
+        /usr/local/YT-HOME/YTHOME setting -reset
     fi
     before_show_menu
 }
@@ -300,18 +300,18 @@ set_setting() {
     [ -z "$config_path" ] || params="$params -path $config_path"
     [ -z "$config_subPort" ] || params="$params -subPort $config_subPort"
     [ -z "$config_subPath" ] || params="$params -subPath $config_subPath"
-    /usr/local/s-ui/sui setting ${params}
+    /usr/local/YT-HOME/YTHOME setting ${params}
     before_show_menu
 }
 
 view_setting() {
-    /usr/local/s-ui/sui setting -show
+    /usr/local/YT-HOME/YTHOME setting -show
     view_uri
     before_show_menu
 }
 
 view_uri() {
-    info=$(/usr/local/s-ui/sui uri)
+    info=$(/usr/local/YT-HOME/YTHOME uri)
     if [[ $? != 0 ]]; then
         LOGE "Get current uri error"
         before_show_menu
@@ -377,7 +377,7 @@ restart() {
 }
 
 status() {
-    service_status_cmd s-ui
+    service_status_cmd YT-HOME
     if [[ $# == 0 ]]; then
         before_show_menu
     fi
@@ -424,13 +424,13 @@ show_log() {
 }
 
 update_shell() {
-    wget -O /usr/bin/s-ui -N --no-check-certificate https://raw.githubusercontent.com/${repo}/main/s-ui.sh
+    wget -O /usr/bin/YT-HOME -N --no-check-certificate https://raw.githubusercontent.com/${repo}/main/YT-HOME.sh
     if [[ $? != 0 ]]; then
         echo ""
         LOGE "Failed to download script, Please check whether the machine can connect Github"
         before_show_menu
     else
-        chmod +x /usr/bin/s-ui
+        chmod +x /usr/bin/YT-HOME
         LOGI "Upgrade script succeeded, Please rerun the script" && exit 0
     fi
 }
@@ -455,7 +455,7 @@ check_enabled() {
 }
 
 check_uninstall() {
-    check_status s-ui
+    check_status YT-HOME
     if [[ $? != 2 ]]; then
         echo ""
         LOGE "Panel is already installed, Please do not reinstall"
@@ -469,7 +469,7 @@ check_uninstall() {
 }
 
 check_install() {
-    check_status s-ui
+    check_status YT-HOME
     if [[ $? == 2 ]]; then
         echo ""
         LOGE "Please install the panel first"
@@ -508,8 +508,8 @@ show_enable_status() {
     fi
 }
 
-check_s-ui_status() {
-    count=$(ps -ef | grep "sui" | grep -v "grep" | wc -l)
+check_ythome_status() {
+    count=$(ps -ef | grep "YTHOME" | grep -v "grep" | wc -l)
     if [[ "${count}" -ne 0 ]]; then
         return 0
     else
@@ -517,12 +517,12 @@ check_s-ui_status() {
     fi
 }
 
-show_s-ui_status() {
-    check_s-ui_status
+show_ythome_status() {
+    check_ythome_status
     if [[ $? == 0 ]]; then
-        echo -e "s-ui state: ${green}Running${plain}"
+        echo -e "YT-HOME state: ${green}Running${plain}"
     else
-        echo -e "s-ui state: ${red}Not Running${plain}"
+        echo -e "YT-HOME state: ${red}Not Running${plain}"
     fi
 }
 
@@ -902,27 +902,27 @@ generate_self_signed_cert() {
 }
 
 show_usage() {
-    echo -e "YT HOME Control Menu Usage"
+    echo -e "YT-HOME Control Menu Usage"
     echo -e "------------------------------------------"
     echo -e "SUBCOMMANDS:" 
-    echo -e "s-ui              - Admin Management Script"
-    echo -e "s-ui start        - Start s-ui"
-    echo -e "s-ui stop         - Stop s-ui"
-    echo -e "s-ui restart      - Restart s-ui"
-    echo -e "s-ui status       - Current Status of s-ui"
-    echo -e "s-ui enable       - Enable Autostart on OS Startup"
-    echo -e "s-ui disable      - Disable Autostart on OS Startup"
-    echo -e "s-ui log          - Check s-ui Logs"
-    echo -e "s-ui update       - Update"
-    echo -e "s-ui install      - Install"
-    echo -e "s-ui uninstall    - Uninstall"
-    echo -e "s-ui help         - Control Menu Usage"
+    echo -e "YT-HOME              - Admin Management Script"
+    echo -e "YT-HOME start        - Start YT-HOME"
+    echo -e "YT-HOME stop         - Stop YT-HOME"
+    echo -e "YT-HOME restart      - Restart YT-HOME"
+    echo -e "YT-HOME status       - Current Status of YT-HOME"
+    echo -e "YT-HOME enable       - Enable Autostart on OS Startup"
+    echo -e "YT-HOME disable      - Disable Autostart on OS Startup"
+    echo -e "YT-HOME log          - Check YT-HOME Logs"
+    echo -e "YT-HOME update       - Update"
+    echo -e "YT-HOME install      - Install"
+    echo -e "YT-HOME uninstall    - Uninstall"
+    echo -e "YT-HOME help         - Control Menu Usage"
     echo -e "------------------------------------------"
 }
 
 show_menu() {
   echo -e "
-  ${green}YT HOME Admin Management Script ${plain}
+  ${green}YT-HOME Admin Management Script ${plain}
 ————————————————————————————————
   ${green}0.${plain} Exit
 ————————————————————————————————
@@ -939,20 +939,20 @@ show_menu() {
   ${green}9.${plain} Set Panel settings
   ${green}10.${plain} View Panel Settings
 ————————————————————————————————
-  ${green}11.${plain} YT HOME Start
-  ${green}12.${plain} YT HOME Stop
-  ${green}13.${plain} YT HOME Restart
-  ${green}14.${plain} YT HOME Check State
-  ${green}15.${plain} YT HOME Check Logs
-  ${green}16.${plain} YT HOME Enable Autostart
-  ${green}17.${plain} YT HOME Disable Autostart
+  ${green}11.${plain} YT-HOME Start
+  ${green}12.${plain} YT-HOME Stop
+  ${green}13.${plain} YT-HOME Restart
+  ${green}14.${plain} YT-HOME Check State
+  ${green}15.${plain} YT-HOME Check Logs
+  ${green}16.${plain} YT-HOME Enable Autostart
+  ${green}17.${plain} YT-HOME Disable Autostart
 ————————————————————————————————
   ${green}18.${plain} Enable or Disable BBR
   ${green}19.${plain} SSL Certificate Management
   ${green}20.${plain} Cloudflare SSL Certificate
 ————————————————————————————————
  "
-    show_status s-ui
+    show_status YT-HOME
     echo && read -p "Please enter your selection [0-20]: " num
 
     case "${num}" in
@@ -990,25 +990,25 @@ show_menu() {
         check_install && view_setting
         ;;
     11)
-        check_install && start s-ui
+        check_install && start YT-HOME
         ;;
     12)
-        check_install && stop s-ui
+        check_install && stop YT-HOME
         ;;
     13)
-        check_install && restart s-ui
+        check_install && restart YT-HOME
         ;;
     14)
-        check_install && status s-ui
+        check_install && status YT-HOME
         ;;
     15)
-        check_install && show_log s-ui
+        check_install && show_log YT-HOME
         ;;
     16)
-        check_install && enable s-ui
+        check_install && enable YT-HOME
         ;;
     17)
-        check_install && disable s-ui
+        check_install && disable YT-HOME
         ;;
     18)
         bbr_menu
@@ -1028,25 +1028,25 @@ show_menu() {
 if [[ $# > 0 ]]; then
     case $1 in
     "start")
-        check_install 0 && start s-ui 0
+        check_install 0 && start YT-HOME 0
         ;;
     "stop")
-        check_install 0 && stop s-ui 0
+        check_install 0 && stop YT-HOME 0
         ;;
     "restart")
-        check_install 0 && restart s-ui 0
+        check_install 0 && restart YT-HOME 0
         ;;
     "status")
         check_install 0 && status 0
         ;;
     "enable")
-        check_install 0 && enable s-ui 0
+        check_install 0 && enable YT-HOME 0
         ;;
     "disable")
-        check_install 0 && disable s-ui 0
+        check_install 0 && disable YT-HOME 0
         ;;
     "log")
-        check_install 0 && show_log s-ui 0
+        check_install 0 && show_log YT-HOME 0
         ;;
     "update")
         check_install 0 && update 0

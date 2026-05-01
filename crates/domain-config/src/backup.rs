@@ -121,7 +121,7 @@ fn unique_temp_path(prefix: &str, extension: &str) -> String {
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
     let mut path = env::temp_dir();
-    path.push(format!("s-ui-{prefix}-{}-{nanos}.{extension}", process::id()));
+    path.push(format!("YT-HOME-{prefix}-{}-{nanos}.{extension}", process::id()));
     path.display().to_string()
 }
 

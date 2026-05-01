@@ -10,7 +10,7 @@
     <v-list-item
       height="63"
       prepend-avatar="@/assets/logo.svg"
-      title="YT HOME"
+      title="YT-HOME"
     >
       <template v-slot:append v-if="isMobile">
         <v-icon icon="mdi-close" />

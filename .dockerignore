@@ -4,11 +4,15 @@
 /backup/
 /bin/
 /db/
-/sui
+/YTHOME
 /sing-box
 /libcronet.so
 /target/
+!vendor/crates/cc/src/target/
+!vendor/crates/cc/src/target/**
 /migrations/
+!crates/infra-db/migrations/
+!crates/infra-db/migrations/**
 /web/
 /web/html
 /main

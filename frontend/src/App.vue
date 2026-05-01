@@ -23,7 +23,7 @@ import { inject, ref, Ref } from 'vue'
 const loading:Ref = inject('loading')?? ref(false)
 
 // Change page title
-document.title = "YT HOME " + document.location.hostname
+document.title = "YT-HOME " + document.location.hostname
 </script>
 
 <style>

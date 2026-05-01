@@ -1,4 +1,4 @@
-# Contributing to YT HOME
+# Contributing to YT-HOME
 
 This repository now ships a Rust backend workspace and a Vue 3 frontend. Contributions are expected to keep the current UI and functional behavior stable while improving structure, safety, and maintainability.
 
@@ -35,9 +35,9 @@ sh ./scripts/fetch-sing-box.sh linux amd64 ./target/release 1.13.5
 For a local debug run:
 
 ```bash
-SUI_SING_BOX_BIN=./target/release/sing-box \
-SUI_DB_FOLDER=db \
-SUI_WEB_DIR=frontend/dist \
+YTHOME_SING_BOX_BIN=./target/release/sing-box \
+YTHOME_DB_FOLDER=db \
+YTHOME_WEB_DIR=frontend/dist \
 cargo run -p app
 ```
 

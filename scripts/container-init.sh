@@ -2,7 +2,7 @@
 set -u
 
 if [ "$#" -eq 0 ]; then
-  set -- /app/sui
+  set -- /app/YTHOME
 fi
 
 child_pid=''

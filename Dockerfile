@@ -17,11 +17,11 @@ COPY patches/ ./patches/
 COPY vendor/ ./vendor/
 COPY crates/ ./crates/
 RUN rustup target add x86_64-unknown-linux-musl \
-    && if [ -x /app/packaging/docker/sui ]; then \
-      cp /app/packaging/docker/sui /app/sui; \
+    && if [ -x /app/packaging/docker/YTHOME ]; then \
+      cp /app/packaging/docker/YTHOME /app/YTHOME; \
     else \
       cargo build --offline --release --target x86_64-unknown-linux-musl -p app; \
-      cp /app/target/x86_64-unknown-linux-musl/release/app /app/sui; \
+      cp /app/target/x86_64-unknown-linux-musl/release/app /app/YTHOME; \
     fi
 
 FROM alpine:3.22 AS singbox-fetcher
@@ -32,22 +32,22 @@ COPY scripts/fetch-sing-box.sh /usr/local/bin/fetch-sing-box
 RUN sh /usr/local/bin/fetch-sing-box linux amd64 /opt/sing-box "${SING_BOX_VERSION}"
 
 FROM alpine:3.22
-LABEL org.opencontainers.image.title="YT HOME RUST"
+LABEL org.opencontainers.image.title="YT-HOME"
 LABEL org.opencontainers.image.description="Rust control plane for sing-box based home access."
 LABEL org.opencontainers.image.source="https://github.com/YTjungle666/YT-HOME"
 LABEL org.opencontainers.image.licenses="GPL-3.0-only"
-ENV SUI_WEB_DIR=/app/web
-ENV SUI_MIGRATIONS_DIR=/app/migrations
+ENV YTHOME_WEB_DIR=/app/web
+ENV YTHOME_MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata openrc \
     && mkdir -p /app/db
 COPY --chmod=755 scripts/container-init.sh /usr/local/bin/container-init
-COPY --chmod=755 --from=backend-builder /app/sui /app/sui
+COPY --chmod=755 --from=backend-builder /app/YTHOME /app/YTHOME
 COPY --chmod=755 --from=singbox-fetcher /opt/sing-box/ /app/
 COPY --from=front-builder /app/frontend/dist/ /app/web/
 COPY crates/infra-db/migrations/ /app/migrations/
-COPY --chmod=755 packaging/openrc/sui /etc/init.d/s-ui
-RUN rc-update add s-ui default \
+COPY --chmod=755 packaging/openrc/YTHOME /etc/init.d/YT-HOME
+RUN rc-update add YT-HOME default \
     && rm -f /sbin/init \
     && cp /usr/local/bin/container-init /sbin/init
 EXPOSE 80 2096

@@ -494,7 +494,7 @@ async fn check_config(binary: &Path, config_path: &Path) -> AppResult<()> {
 }
 
 fn resolve_runtime_dir() -> AppResult<PathBuf> {
-    if let Ok(value) = env::var("SUI_RUNTIME_DIR") {
+    if let Ok(value) = env::var("YTHOME_RUNTIME_DIR") {
         let path = PathBuf::from(value);
         fs::create_dir_all(&path)?;
         return Ok(path);
@@ -516,7 +516,7 @@ fn resolve_runtime_dir() -> AppResult<PathBuf> {
 }
 
 fn resolve_sing_box_binary() -> AppResult<PathBuf> {
-    if let Ok(value) = env::var("SUI_SING_BOX_BIN") {
+    if let Ok(value) = env::var("YTHOME_SING_BOX_BIN") {
         let path = PathBuf::from(value);
         if path.is_file() {
             return Ok(path);
@@ -542,7 +542,7 @@ fn resolve_sing_box_binary() -> AppResult<PathBuf> {
     }
 
     Err(AppError::NotFound(format!(
-        "sing-box binary not found, set SUI_SING_BOX_BIN or place {binary_name} next to the app"
+        "sing-box binary not found, set YTHOME_SING_BOX_BIN or place {binary_name} next to the app"
     )))
 }
 

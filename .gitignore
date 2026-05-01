@@ -4,10 +4,10 @@
 /backup/
 /bin/
 /db/
-/sui
+/YTHOME
 /sing-box
 /libcronet.so
-/packaging/docker/sui
+/packaging/docker/YTHOME
 /target/
 /migrations/
 /web/
@@ -28,10 +28,10 @@
 # Windows build artifacts
 *.exe
 *.zip
-/s-ui-windows/
-/sui-*.exe
-/sui-*.zip
-/windows/sui-*.exe
+/YT-HOME-windows/
+/YTHOME-*.exe
+/YTHOME-*.zip
+/windows/YTHOME-*.exe
 
 # Editor directories and files
 .idea

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-pub const APP_NAME: &str = "s-ui";
+pub const APP_NAME: &str = "YT-HOME";
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const SESSION_COOKIE: &str = "s-ui";
+pub const SESSION_COOKIE: &str = "YT-HOME";
 
 pub const DEFAULT_CONFIG_JSON: &str = r#"{
   "log": {

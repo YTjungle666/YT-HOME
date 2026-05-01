@@ -65,13 +65,13 @@ async fn run_server(executable_dir: PathBuf) -> AppResult<()> {
         error!("failed to start sing-box during boot: {}", err.message());
     }
 
-    let port = env::var("SUI_WEB_PORT")
+    let port = env::var("YTHOME_WEB_PORT")
         .ok()
         .map(|value| value.parse::<u16>())
         .transpose()
         .map_err(|error| AppError::Validation(error.to_string()))?
         .unwrap_or(settings.panel_port().await?);
-    let sub_port = env::var("SUI_SUB_PORT")
+    let sub_port = env::var("YTHOME_SUB_PORT")
         .ok()
         .map(|value| value.parse::<u16>())
         .transpose()
@@ -212,8 +212,8 @@ async fn run_migrate_command(executable_dir: &Path) -> AppResult<()> {
 }
 
 async fn open_database(executable_dir: &Path) -> AppResult<Db> {
-    let db_path = env::var("SUI_DB_FOLDER")
-        .map(|folder| format!("{folder}/s-ui.db"))
+    let db_path = env::var("YTHOME_DB_FOLDER")
+        .map(|folder| format!("{folder}/YT-HOME.db"))
         .unwrap_or_else(|_| default_db_path(executable_dir));
 
     let db = connect_sqlite(&db_path).await?;
@@ -334,11 +334,11 @@ fn next_arg(iter: &mut impl Iterator<Item = String>, flag: &str) -> AppResult<St
 }
 
 fn show_version() {
-    println!("YT HOME Panel\t {APP_VERSION}");
+    println!("YT-HOME Panel\t {APP_VERSION}");
 }
 
 fn resolve_web_dir(executable_dir: &Path) -> Option<PathBuf> {
-    if let Ok(value) = env::var("SUI_WEB_DIR") {
+    if let Ok(value) = env::var("YTHOME_WEB_DIR") {
         let path = PathBuf::from(value);
         if path.join("index.html").is_file() {
             return Some(path);

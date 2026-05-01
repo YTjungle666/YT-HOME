@@ -1,6 +1,6 @@
 ---
 services:
-  s-ui:
+  YT-HOME:
     image: ghcr.io/ytjungle666/yt-home:latest
     platform: linux/amd64
     container_name: yt-home
@@ -14,8 +14,8 @@ services:
       - "80:80"
       - "2096:2096"
     networks:
-      - s-ui
+      - YT-HOME
 
 networks:
-  s-ui:
+  YT-HOME:
     driver: bridge

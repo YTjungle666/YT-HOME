@@ -51,7 +51,7 @@ pub fn default_db_path(executable_dir: &Path) -> String {
 }
 
 fn resolve_migrations_dir() -> AppResult<PathBuf> {
-    if let Ok(value) = env::var("SUI_MIGRATIONS_DIR") {
+    if let Ok(value) = env::var("YTHOME_MIGRATIONS_DIR") {
         let path = PathBuf::from(value);
         if path.is_dir() {
             return Ok(path);

@@ -1,11 +1,11 @@
-# YT HOME RUST
+# YT-HOME
 
 ![Release](https://img.shields.io/github/v/release/YTjungle666/YT-HOME?display_name=tag)
 ![CI](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/ci.yml?branch=main&label=ci)
 ![Docker](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/docker.yml?branch=main&label=docker)
 ![License](https://img.shields.io/github/license/YTjungle666/YT-HOME)
 
-`YT HOME RUST` 是一个面向家庭网络回家场景的 `sing-box` 控制面板。  
+`YT-HOME` 是一个面向家庭网络回家场景的 `sing-box` 控制面板。
 它把入站、客户端、二维码、订阅、TLS / Reality、运行状态和访问边界统一到一个中文面板里，适合部署在家庭服务器、`PVE`、`NAS` 和小主机上。
 
 ## 它解决什么问题
@@ -22,6 +22,12 @@
 - 可直接导入客户端的订阅、链接与二维码
 - 默认收紧的访问边界控制
 - Rust 后端带来的更稳资源占用和更清晰的结构
+
+## 技术栈
+
+- 后端：Rust
+- 前端：Vue 3 + Vuetify
+- 运行核心：`sing-box`
 
 ## 默认信息
 
@@ -112,9 +118,64 @@ pct start 210
 
 这个 rootfs 已经内置 CT 启动入口，创建后可直接启动，不依赖额外容器运行时。
 
+## 修改管理员账号密码
+
+默认账号和密码都是 `admin`。首次部署后建议立即修改。
+
+### 通过管理脚本修改
+
+普通安装会把管理脚本安装到 `/usr/bin/YT-HOME`：
+
+```bash
+sudo YT-HOME
+```
+
+进入菜单后选择 `6` 设置管理员账号密码，选择 `7` 查看当前管理员信息。
+
+也可以直接执行：
+
+```bash
+sudo /usr/local/YT-HOME/YTHOME admin -username '新账号' -password '新密码'
+sudo /usr/local/YT-HOME/YTHOME admin -show
+```
+
+### 普通二进制安装修改
+
+如果是手动解压 Release 包，进入实际安装目录后执行内置二进制：
+
+```bash
+cd /usr/local/YT-HOME
+sudo ./YTHOME admin -username '新账号' -password '新密码'
+sudo ./YTHOME admin -show
+```
+
+如果你自定义了数据库目录，需要带上同一个环境变量：
+
+```bash
+sudo YTHOME_DB_FOLDER=/你的数据库目录 /usr/local/YT-HOME/YTHOME admin -username '新账号' -password '新密码'
+```
+
+### Docker 部署修改
+
+Docker 镜像里的二进制路径是 `/app/YTHOME`：
+
+```bash
+docker exec -it yt-home /app/YTHOME admin -username '新账号' -password '新密码'
+docker exec -it yt-home /app/YTHOME admin -show
+```
+
+如果 Compose 服务名被用来执行，也可以：
+
+```bash
+docker compose exec YT-HOME /app/YTHOME admin -username '新账号' -password '新密码'
+docker compose exec YT-HOME /app/YTHOME admin -show
+```
+
+如果容器自定义了数据库目录，同样需要传入 `YTHOME_DB_FOLDER`。
+
 ## 发布产物
 
-- Linux 安装包：`s-ui-linux-amd64.tar.gz`
+- Linux 安装包：`YT-HOME-linux-amd64.tar.gz`
 - PVE CT rootfs：`yt-home-ct-amd64-rootfs.tar.gz`
 - Docker 镜像：`ghcr.io/ytjungle666/yt-home`
 - Release 页面：<https://github.com/YTjungle666/YT-HOME/releases>

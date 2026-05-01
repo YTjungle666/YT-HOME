@@ -53,18 +53,18 @@ jobs:
 
       - name: Assemble release bundle
         run: |
-          rm -rf s-ui
-          mkdir -p s-ui/packaging/openrc
-          cp "$RUNNER_TEMP/export/app/sui" s-ui/
-          cp "$RUNNER_TEMP/export/app/sing-box" s-ui/
-          cp -R "$RUNNER_TEMP/export/app/web" s-ui/
-          cp -R "$RUNNER_TEMP/export/app/migrations" s-ui/
-          cp packaging/openrc/sui s-ui/packaging/openrc/
-          cp s-ui.service s-ui/
-          cp s-ui.sh s-ui/
-          cp install.sh s-ui/
-          chmod +x s-ui/sui s-ui/sing-box s-ui/s-ui.sh s-ui/install.sh s-ui/packaging/openrc/sui
-          tar -zcf s-ui-linux-amd64.tar.gz s-ui
+          rm -rf YT-HOME
+          mkdir -p YT-HOME/packaging/openrc
+          cp "$RUNNER_TEMP/export/app/YTHOME" YT-HOME/
+          cp "$RUNNER_TEMP/export/app/sing-box" YT-HOME/
+          cp -R "$RUNNER_TEMP/export/app/web" YT-HOME/
+          cp -R "$RUNNER_TEMP/export/app/migrations" YT-HOME/
+          cp packaging/openrc/YTHOME YT-HOME/packaging/openrc/
+          cp YT-HOME.service YT-HOME/
+          cp YT-HOME.sh YT-HOME/
+          cp install.sh YT-HOME/
+          chmod +x YT-HOME/YTHOME YT-HOME/sing-box YT-HOME/YT-HOME.sh YT-HOME/install.sh YT-HOME/packaging/openrc/YTHOME
+          tar -zcf YT-HOME-linux-amd64.tar.gz YT-HOME
 
       - name: Assemble CT rootfs bundle
         run: |
@@ -73,8 +73,8 @@ jobs:
       - name: Upload linux artifact
         uses: actions/upload-artifact@v7.0.0
         with:
-          name: s-ui-linux-amd64
-          path: ./s-ui-linux-amd64.tar.gz
+          name: YT-HOME-linux-amd64
+          path: ./YT-HOME-linux-amd64.tar.gz
           retention-days: 30
           if-no-files-found: error
 
@@ -92,8 +92,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          file: s-ui-linux-amd64.tar.gz
-          asset_name: s-ui-linux-amd64.tar.gz
+          file: YT-HOME-linux-amd64.tar.gz
+          asset_name: YT-HOME-linux-amd64.tar.gz
           prerelease: false
           overwrite: true
 

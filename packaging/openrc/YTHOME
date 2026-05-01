@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+
+APP_DIR="/app"
+if [ -x /usr/local/YT-HOME/YTHOME ]; then
+    APP_DIR="/usr/local/YT-HOME"
+fi
+
+name="YT-HOME"
+description="YT-HOME control plane"
+command="${APP_DIR}/YTHOME"
+command_background="yes"
+pidfile="/run/YTHOME.pid"
+directory="${APP_DIR}"
+export YTHOME_WEB_DIR="${APP_DIR}/web"
+export YTHOME_MIGRATIONS_DIR="${APP_DIR}/migrations"
+
+depend() {
+    need net localmount
+}
+
+start_pre() {
+    mkdir -p "${APP_DIR}/db" /run
+}

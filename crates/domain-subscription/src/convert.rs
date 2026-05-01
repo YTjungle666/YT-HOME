@@ -526,20 +526,19 @@ fn get_transport(
     let host = query.get("host").cloned().unwrap_or_default();
     let path = query.get("path").cloned().unwrap_or_default();
     match transport_type.to_ascii_lowercase().as_str() {
-        "tcp" | "" => {
-            if query.get("headerType").map(String::as_str) == Some("http") {
-                transport.insert("type".to_string(), Value::String("http".to_string()));
-                if !host.is_empty() {
-                    transport.insert(
-                        "host".to_string(),
-                        Value::Array(
-                            host.split(',').map(|value| Value::String(value.to_string())).collect(),
-                        ),
-                    );
-                }
-                transport.insert("path".to_string(), Value::String(path));
+        "tcp" | "" if query.get("headerType").map(String::as_str) == Some("http") => {
+            transport.insert("type".to_string(), Value::String("http".to_string()));
+            if !host.is_empty() {
+                transport.insert(
+                    "host".to_string(),
+                    Value::Array(
+                        host.split(',').map(|value| Value::String(value.to_string())).collect(),
+                    ),
+                );
             }
+            transport.insert("path".to_string(), Value::String(path));
         }
+        "tcp" | "" => {}
         "http" | "h2" => {
             transport.insert("type".to_string(), Value::String("http".to_string()));
             if !host.is_empty() {
