@@ -15,7 +15,6 @@ concurrency:
 
 env:
   SING_BOX_VERSION: "1.13.5"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   ensure-release:
@@ -23,13 +22,24 @@ jobs:
     steps:
       - name: Create or update release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2.6.1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          generate_release_notes: true
-          make_latest: true
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ github.ref_name }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "${{ github.ref_name }}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "${{ github.ref_name }}" \
+              --latest \
+              --draft=false \
+              --prerelease=false
+          else
+            gh release create "${{ github.ref_name }}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes \
+              --latest \
+              --verify-tag
+          fi
 
   build-linux:
     needs: ensure-release
@@ -90,22 +100,20 @@ jobs:
 
       - name: Upload linux asset to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          file: YT-HOME-linux-amd64.tar.gz
-          asset_name: YT-HOME-linux-amd64.tar.gz
-          prerelease: false
-          overwrite: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            YT-HOME-linux-amd64.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
 
       - name: Upload CT rootfs asset to release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          file: yt-home-ct-amd64-rootfs.tar.gz
-          asset_name: yt-home-ct-amd64-rootfs.tar.gz
-          prerelease: false
-          overwrite: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            yt-home-ct-amd64-rootfs.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
