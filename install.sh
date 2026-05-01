@@ -194,11 +194,14 @@ install_ythome() {
         fi
     else
         last_version=$1
+        if [[ "${last_version}" != v* ]]; then
+            last_version="v${last_version}"
+        fi
         url="https://github.com/${repo}/releases/download/${last_version}/YT-HOME-linux-$(arch).tar.gz"
-        echo -e "Beginning the install YT-HOME v$1"
+        echo -e "Beginning the install YT-HOME ${last_version}"
         wget -N --no-check-certificate -O /tmp/YT-HOME-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
-            echo -e "${red}download YT-HOME v$1 failed,please check the version exists${plain}"
+            echo -e "${red}download YT-HOME ${last_version} failed,please check the version exists${plain}"
             exit 1
         fi
     fi

@@ -16,7 +16,6 @@ shared = { path = "../shared" }
 sqlx.workspace = true
 time.workspace = true
 tracing.workspace = true
-ulid.workspace = true
 uuid.workspace = true
 
 [lints]

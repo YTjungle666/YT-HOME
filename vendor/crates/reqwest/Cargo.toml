@@ -87,7 +87,6 @@ __rustls-aws-lc-rs = [
     "hyper-rustls?/aws-lc-rs",
     "tokio-rustls?/aws-lc-rs",
     "rustls?/aws-lc-rs",
-    "quinn?/rustls-aws-lc-rs",
 ]
 __tls = [
     "dep:rustls-pki-types",
@@ -132,13 +131,6 @@ http2 = [
     "hyper/http2",
     "hyper-util/http2",
     "hyper-rustls?/http2",
-]
-http3 = [
-    "rustls",
-    "dep:h3",
-    "dep:h3-quinn",
-    "dep:quinn",
-    "tokio/macros",
 ]
 json = [
     "dep:serde",
@@ -263,14 +255,6 @@ optional = true
 version = "0.4"
 optional = true
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.h3]
-version = "0.0.8"
-optional = true
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.h3-quinn]
-version = "0.0.10"
-optional = true
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.hickory-resolver]
 version = "0.25"
 features = ["tokio"]
@@ -333,12 +317,6 @@ version = "2.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.pin-project-lite]
 version = "0.2.11"
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.quinn]
-version = "0.11.1"
-features = ["runtime-tokio"]
-optional = true
-default-features = false
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.rustls]
 version = "0.23.4"

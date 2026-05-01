@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_VERSION: "24"
+      NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
       RUST_TOOLCHAIN: "1.88.0"
       SING_BOX_VERSION: "1.13.5"
     steps:
