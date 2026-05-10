@@ -13,6 +13,7 @@ use http_api::{AppState, router};
 use if_addrs::{IfAddr, get_if_addrs};
 use infra_db::{Db, connect_sqlite, default_db_path, run_migrations};
 use infra_observability::init_tracing;
+use infra_scheduler::spawn_runtime_stats_collector;
 use shared::{AppError, AppResult, settings::APP_VERSION};
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -77,6 +78,8 @@ async fn run_server(executable_dir: PathBuf) -> AppResult<()> {
         .transpose()
         .map_err(|error| AppError::Validation(error.to_string()))?
         .unwrap_or(settings.subscription_port().await?);
+    let _stats_collector =
+        spawn_runtime_stats_collector(settings.clone(), stats.clone(), core.clone());
     let app_state = AppState { auth, settings, core, stats, subscription };
     let sub_path = app_state.settings.subscription_path().await?;
     let panel_path = app_state.settings.panel_path().await?;

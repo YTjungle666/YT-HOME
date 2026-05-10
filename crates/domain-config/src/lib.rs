@@ -1,7 +1,7 @@
 mod backup;
 mod save;
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, env, path::PathBuf, process::Command, sync::OnceLock};
 
 use infra_db::Db;
 use serde_json::{Map, Value, json};
@@ -13,6 +13,9 @@ use shared::{
     settings::default_settings,
 };
 use time::OffsetDateTime;
+
+const DEFAULT_V2RAY_API_LISTEN: &str = "127.0.0.1:21085";
+const V2RAY_API_LISTEN_ENV: &str = "YTHOME_V2RAY_API_LISTEN";
 
 #[derive(Clone)]
 pub struct SettingsService {
@@ -33,9 +36,7 @@ impl SettingsService {
                 .await?;
         }
 
-        sqlx::query(
-            "INSERT OR IGNORE INTO outbounds (id, kind, tag, options) VALUES (1, 'direct', 'direct', '{}')",
-        )
+        sqlx::query("INSERT OR IGNORE INTO outbounds (kind, tag, options) VALUES ('direct', 'direct', '{}')")
         .execute(&self.pool)
         .await?;
 
@@ -106,6 +107,7 @@ impl SettingsService {
                 return Err(AppError::Validation("config root must be a JSON object".to_string()));
             }
         };
+        apply_runtime_defaults(&mut root);
 
         let tls_servers = self.load_tls_servers().await?;
         let enabled_clients = self.load_enabled_clients().await?;
@@ -121,12 +123,15 @@ impl SettingsService {
             ),
         );
         inject_private_network_guards(&mut root, &inbound_rows)?;
-        root.insert("outbounds".to_string(), Value::Array(self.load_runtime_outbounds().await?));
-        root.insert(
-            "services".to_string(),
-            Value::Array(self.load_runtime_services(&tls_servers).await?),
-        );
-        root.insert("endpoints".to_string(), Value::Array(self.load_runtime_endpoints().await?));
+        root.insert("outbounds".to_string(), Value::Array(fixed_runtime_outbounds()));
+        root.insert("services".to_string(), Value::Array(Vec::new()));
+        root.insert("endpoints".to_string(), Value::Array(Vec::new()));
+
+        if self.traffic_age().await.unwrap_or_default() > 0
+            && let Some(listen) = runtime_stats_api_listen()
+        {
+            apply_runtime_v2ray_api_defaults(&mut root, &inbound_rows, &enabled_clients, &listen);
+        }
 
         serde_json::to_string_pretty(&Value::Object(root)).map_err(Into::into)
     }
@@ -148,7 +153,9 @@ impl SettingsService {
                 value.clone()
             };
 
-            if key == "trafficAge" && normalized_value == "0" {
+            if key == "trafficAge"
+                && normalized_value.parse::<i64>().map(|value| value <= 0).unwrap_or(false)
+            {
                 sqlx::query("DELETE FROM stats").execute(&self.pool).await?;
             }
 
@@ -420,6 +427,8 @@ impl SettingsService {
                     "inbounds": parse_json_text(&row.inbounds, Value::Array(Vec::new()))?,
                     "up": row.up,
                     "down": row.down,
+                    "totalUp": row.total_up,
+                    "totalDown": row.total_down,
                     "volume": row.volume,
                     "expiry": row.expiry,
                 }))
@@ -614,36 +623,6 @@ impl SettingsService {
         .await
         .map_err(Into::into)
     }
-
-    async fn load_runtime_outbounds(&self) -> AppResult<Vec<Value>> {
-        let rows = sqlx::query_as::<_, OutboundRow>(
-            "SELECT id, kind, tag, options FROM outbounds ORDER BY id ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(runtime_outbound_to_value).collect()
-    }
-
-    async fn load_runtime_services(
-        &self,
-        tls_servers: &BTreeMap<i64, Map<String, Value>>,
-    ) -> AppResult<Vec<Value>> {
-        let rows = sqlx::query_as::<_, ServiceRow>(
-            "SELECT id, kind, tag, COALESCE(tls_id, 0) AS tls_id, options FROM services ORDER BY id ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(|row| runtime_service_to_value(row, tls_servers)).collect()
-    }
-
-    async fn load_runtime_endpoints(&self) -> AppResult<Vec<Value>> {
-        let rows = sqlx::query_as::<_, EndpointRow>(
-            "SELECT id, kind, tag, options, ext FROM endpoints ORDER BY id ASC",
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(runtime_endpoint_to_value).collect()
-    }
 }
 
 fn normalize_path_setting(value: &str) -> String {
@@ -683,6 +662,173 @@ fn merge_entity(id: i64, kind: &str, tag: &str, options_raw: &str) -> AppResult<
     object.insert("type".to_string(), json!(kind));
     object.insert("tag".to_string(), json!(tag));
     Ok(Value::Object(object))
+}
+
+fn apply_runtime_defaults(root: &mut Map<String, Value>) {
+    ensure_log_defaults(root);
+    ensure_dns_defaults(root);
+    ensure_route_defaults(root);
+    ensure_experimental_defaults(root);
+}
+
+fn ensure_log_defaults(root: &mut Map<String, Value>) {
+    let log = object_field(root, "log");
+    log.entry("level".to_string()).or_insert_with(|| Value::String("info".to_string()));
+    log.entry("timestamp".to_string()).or_insert(Value::Bool(true));
+}
+
+fn ensure_dns_defaults(root: &mut Map<String, Value>) {
+    root.insert(
+        "dns".to_string(),
+        json!({
+            "servers": [
+                {
+                    "type": "local",
+                    "tag": "local-dns"
+                }
+            ],
+            "rules": [],
+            "final": "local-dns"
+        }),
+    );
+}
+
+fn ensure_route_defaults(root: &mut Map<String, Value>) {
+    root.insert(
+        "route".to_string(),
+        json!({
+            "rules": [
+                {
+                    "action": "sniff"
+                },
+                {
+                    "protocol": ["dns"],
+                    "action": "hijack-dns"
+                }
+            ],
+            "rule_set": [],
+            "final": "direct",
+            "auto_detect_interface": true
+        }),
+    );
+}
+
+fn ensure_experimental_defaults(root: &mut Map<String, Value>) {
+    root.insert(
+        "experimental".to_string(),
+        json!({
+            "cache_file": {
+                "enabled": true,
+            }
+        }),
+    );
+}
+
+fn apply_runtime_v2ray_api_defaults(
+    root: &mut Map<String, Value>,
+    inbound_rows: &[InboundRow],
+    clients: &[ClientRow],
+    listen: &str,
+) {
+    let inbound_tags = inbound_rows
+        .iter()
+        .map(|row| row.tag.trim())
+        .filter(|tag| !tag.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    let user_names = clients
+        .iter()
+        .map(|row| row.name.trim())
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    let experimental = object_field(root, "experimental");
+    experimental.insert(
+        "v2ray_api".to_string(),
+        json!({
+            "listen": listen,
+            "stats": {
+                "enabled": true,
+                "inbounds": inbound_tags,
+                "outbounds": ["direct"],
+                "users": user_names
+            }
+        }),
+    );
+}
+
+fn object_field<'a>(object: &'a mut Map<String, Value>, key: &str) -> &'a mut Map<String, Value> {
+    if !object.get(key).is_some_and(Value::is_object) {
+        object.insert(key.to_string(), Value::Object(Map::new()));
+    }
+    object.get_mut(key).and_then(Value::as_object_mut).expect("object field must exist")
+}
+
+fn fixed_runtime_outbounds() -> Vec<Value> {
+    vec![json!({
+        "type": "direct",
+        "tag": "direct",
+    })]
+}
+
+fn runtime_stats_api_listen() -> Option<String> {
+    let listen = env::var(V2RAY_API_LISTEN_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_V2RAY_API_LISTEN.to_string());
+    if matches!(listen.to_ascii_lowercase().as_str(), "0" | "off" | "false" | "disabled") {
+        return None;
+    }
+
+    sing_box_supports_v2ray_api().then_some(listen)
+}
+
+fn sing_box_supports_v2ray_api() -> bool {
+    static SUPPORTS_V2RAY_API: OnceLock<bool> = OnceLock::new();
+    *SUPPORTS_V2RAY_API.get_or_init(detect_sing_box_v2ray_api_support)
+}
+
+fn detect_sing_box_v2ray_api_support() -> bool {
+    let Some(binary) = resolve_sing_box_binary_for_config() else {
+        return false;
+    };
+    let Ok(output) = Command::new(binary).arg("version").output() else {
+        return false;
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    stdout.contains("with_v2ray_api") || stderr.contains("with_v2ray_api")
+}
+
+fn resolve_sing_box_binary_for_config() -> Option<PathBuf> {
+    if let Ok(value) = env::var("YTHOME_SING_BOX_BIN") {
+        let path = PathBuf::from(value);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+
+    let binary_name = if cfg!(windows) { "sing-box.exe" } else { "sing-box" };
+    let executable_dir = env::current_exe().ok().and_then(|path| path.parent().map(PathBuf::from));
+    let current_dir = env::current_dir().ok();
+    let candidates = [
+        executable_dir.as_ref().map(|dir| dir.join(binary_name)),
+        current_dir.as_ref().map(|dir| dir.join(binary_name)),
+    ];
+
+    for candidate in candidates.into_iter().flatten() {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+
+    env::var_os("PATH").and_then(|paths| {
+        env::split_paths(&paths)
+            .map(|path| path.join(binary_name))
+            .find(|candidate| candidate.is_file())
+    })
 }
 
 fn client_to_value(row: ClientRow) -> AppResult<Value> {
@@ -834,34 +980,6 @@ fn inject_private_network_guards(
     Ok(())
 }
 
-fn runtime_outbound_to_value(row: OutboundRow) -> AppResult<Value> {
-    let mut object = parse_json_object(&row.options, "outbound options")?;
-    object.insert("type".to_string(), Value::String(row.kind));
-    object.insert("tag".to_string(), Value::String(row.tag));
-    Ok(Value::Object(object))
-}
-
-fn runtime_service_to_value(
-    row: ServiceRow,
-    tls_servers: &BTreeMap<i64, Map<String, Value>>,
-) -> AppResult<Value> {
-    let mut object = parse_json_object(&row.options, "service options")?;
-    object.insert("type".to_string(), Value::String(row.kind));
-    object.insert("tag".to_string(), Value::String(row.tag));
-    if let Some(tls) = tls_servers.get(&row.tls_id) {
-        object.insert("tls".to_string(), Value::Object(tls.clone()));
-    }
-    Ok(Value::Object(object))
-}
-
-fn runtime_endpoint_to_value(row: EndpointRow) -> AppResult<Value> {
-    let mut object = parse_json_object(&row.options, "endpoint options")?;
-    let endpoint_type = if row.kind == "warp" { "wireguard" } else { row.kind.as_str() };
-    object.insert("type".to_string(), Value::String(endpoint_type.to_string()));
-    object.insert("tag".to_string(), Value::String(row.tag));
-    Ok(Value::Object(object))
-}
-
 fn inbound_supports_users(kind: &str) -> bool {
     matches!(
         kind,
@@ -955,12 +1073,19 @@ fn build_runtime_inbound_users(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_runtime_inbound_users, inject_private_network_guards, parse_json_object,
-        runtime_endpoint_to_value, runtime_inbound_to_value, runtime_service_to_value,
+        SettingsService, apply_runtime_defaults, apply_runtime_v2ray_api_defaults,
+        build_runtime_inbound_users, fixed_runtime_outbounds, inject_private_network_guards,
+        parse_json_object, runtime_inbound_to_value,
     };
+    use infra_db::connect_sqlite;
     use serde_json::{Map, Value, json};
-    use shared::model::{ClientRow, EndpointRow, InboundRow, ServiceRow};
-    use std::collections::BTreeMap;
+    use shared::model::{ClientRow, InboundRow};
+    use std::{
+        collections::BTreeMap,
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     fn test_client(config: Value, inbounds: Value) -> ClientRow {
         ClientRow {
@@ -982,6 +1107,27 @@ mod tests {
             next_reset: 0,
             total_up: 0,
             total_down: 0,
+        }
+    }
+
+    async fn test_settings_service() -> (SettingsService, PathBuf) {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or_default();
+        let path = std::env::temp_dir()
+            .join(format!("YT-HOME-domain-config-test-{}-{nanos}.db", std::process::id()));
+        let pool = connect_sqlite(&path).await.expect("connect sqlite");
+        run_sql_script(&pool, include_str!("../../infra-db/migrations/0001_init.sql")).await;
+        let service = SettingsService::new(pool);
+        service.ensure_defaults().await.expect("ensure defaults");
+        (service, path)
+    }
+
+    async fn run_sql_script(pool: &infra_db::Db, script: &str) {
+        for statement in script.split(';').map(str::trim).filter(|statement| !statement.is_empty())
+        {
+            sqlx::query(statement).execute(pool).await.expect("run schema statement");
         }
     }
 
@@ -1043,27 +1189,6 @@ mod tests {
 
         let users = build_runtime_inbound_users(&row, &inbound, &clients).expect("runtime users");
         assert_eq!(users[0]["flow"], "");
-    }
-
-    #[test]
-    fn runtime_service_attaches_tls() {
-        let row = ServiceRow {
-            id: 1,
-            kind: "derp".to_string(),
-            tag: "derp-a".to_string(),
-            tls_id: 9,
-            options: r#"{"listen":"::","listen_port":4443}"#.to_string(),
-        };
-        let mut tls_servers = BTreeMap::new();
-        tls_servers.insert(
-            9,
-            parse_json_object(r#"{"enabled":true,"server_name":"mesh.example"}"#, "tls server")
-                .expect("tls object"),
-        );
-
-        let value = runtime_service_to_value(row, &tls_servers).expect("runtime service");
-        assert_eq!(value["type"], "derp");
-        assert_eq!(value["tls"]["server_name"], "mesh.example");
     }
 
     #[test]
@@ -1129,24 +1254,119 @@ mod tests {
     }
 
     #[test]
-    fn runtime_warp_endpoint_uses_wireguard_type() {
-        let row = EndpointRow {
-            id: 1,
-            kind: "warp".to_string(),
-            tag: "warp-out".to_string(),
-            options: r#"{"address":["172.16.0.2/32"],"private_key":"k"}"#.to_string(),
-            ext: "{}".to_string(),
-        };
-
-        let value = runtime_endpoint_to_value(row).expect("runtime endpoint");
-        assert_eq!(value["type"], "wireguard");
-        assert_eq!(value["tag"], "warp-out");
-    }
-
-    #[test]
     fn parse_json_object_rejects_non_object() {
         let error = parse_json_object("[]", "demo").expect_err("array must fail");
         assert_eq!(error.message(), "demo must be a JSON object");
+    }
+
+    #[test]
+    fn runtime_defaults_replace_missing_or_invalid_managed_sections() {
+        let mut root = Map::new();
+        root.insert("dns".to_string(), Value::Array(Vec::new()));
+        root.insert(
+            "route".to_string(),
+            json!({
+                "rules": "invalid",
+                "rule_set": [{ "type": "remote", "tag": "stale" }],
+                "final": "stale-out"
+            }),
+        );
+        root.insert("experimental".to_string(), Value::Null);
+
+        apply_runtime_defaults(&mut root);
+        let outbounds = fixed_runtime_outbounds();
+
+        assert_eq!(root["dns"]["servers"][0]["tag"], "local-dns");
+        assert_eq!(root["dns"]["final"], "local-dns");
+        assert_eq!(root["route"]["final"], "direct");
+        assert_eq!(root["route"]["rules"][0]["action"], "sniff");
+        assert_eq!(root["route"]["rules"][1]["action"], "hijack-dns");
+        assert_eq!(root["route"]["rule_set"], json!([]));
+        assert_eq!(root["experimental"]["cache_file"]["enabled"], true);
+        assert_eq!(outbounds[0]["tag"], "direct");
+    }
+
+    #[test]
+    fn runtime_v2ray_api_defaults_track_generated_runtime_tags() {
+        let mut root = Map::new();
+        apply_runtime_defaults(&mut root);
+        let inbound_rows = vec![InboundRow {
+            id: 1,
+            kind: "vless".to_string(),
+            tag: "home-in".to_string(),
+            allow_lan_access: true,
+            tls_id: 0,
+            addrs: "[]".to_string(),
+            out_json: "{}".to_string(),
+            options: "{}".to_string(),
+        }];
+        let clients = vec![test_client(json!({}), json!([1]))];
+
+        apply_runtime_v2ray_api_defaults(&mut root, &inbound_rows, &clients, "127.0.0.1:21085");
+
+        assert_eq!(root["experimental"]["v2ray_api"]["listen"], "127.0.0.1:21085");
+        assert_eq!(root["experimental"]["v2ray_api"]["stats"]["enabled"], true);
+        assert_eq!(root["experimental"]["v2ray_api"]["stats"]["inbounds"], json!(["home-in"]));
+        assert_eq!(root["experimental"]["v2ray_api"]["stats"]["outbounds"], json!(["direct"]));
+        assert_eq!(root["experimental"]["v2ray_api"]["stats"]["users"], json!(["demo"]));
+    }
+
+    #[tokio::test]
+    async fn runtime_config_ignores_malformed_hidden_legacy_rows() {
+        let (service, path) = test_settings_service().await;
+        sqlx::query(
+            "INSERT INTO outbounds (kind, tag, options) VALUES ('selector', 'stale-out', 'not-json')",
+        )
+        .execute(&service.pool)
+        .await
+        .expect("insert outbound");
+        sqlx::query(
+            "INSERT INTO services (kind, tag, options) VALUES ('derp', 'stale-service', 'not-json')",
+        )
+        .execute(&service.pool)
+        .await
+        .expect("insert service");
+        sqlx::query(
+            "INSERT INTO endpoints (kind, tag, options, ext) VALUES ('warp', 'stale-endpoint', 'not-json', 'not-json')",
+        )
+        .execute(&service.pool)
+        .await
+        .expect("insert endpoint");
+        service
+            .save_config(&json!({
+                "dns": {
+                    "servers": [{ "type": "tcp", "tag": "stale-dns", "server": "8.8.8.8" }],
+                    "rules": [{ "outbound": "stale-out" }],
+                    "final": "stale-dns"
+                },
+                "route": {
+                    "rules": [{ "action": "route", "outbound": "stale-out" }],
+                    "rule_set": [{ "type": "remote", "tag": "stale-rules" }],
+                    "final": "stale-out"
+                },
+                "experimental": {
+                    "v2ray_api": "bad-shape"
+                }
+            }))
+            .await
+            .expect("save stale config");
+
+        let config = service.build_runtime_config().await.expect("runtime config");
+        let root: Value = serde_json::from_str(&config).expect("parse runtime config");
+
+        assert_eq!(root["dns"]["servers"], json!([{ "type": "local", "tag": "local-dns" }]));
+        assert_eq!(root["dns"]["rules"], json!([]));
+        assert_eq!(root["dns"]["final"], "local-dns");
+        assert_eq!(root["route"]["rules"][0]["action"], "sniff");
+        assert_eq!(root["route"]["rules"][1]["action"], "hijack-dns");
+        assert_eq!(root["route"]["rule_set"], json!([]));
+        assert_eq!(root["route"]["final"], "direct");
+        assert_eq!(root["outbounds"], json!([{ "type": "direct", "tag": "direct" }]));
+        assert_eq!(root["services"], json!([]));
+        assert_eq!(root["endpoints"], json!([]));
+
+        service.pool.close().await;
+        let _ = fs::remove_file(path);
     }
 
     #[test]

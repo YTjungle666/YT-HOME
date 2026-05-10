@@ -6,11 +6,18 @@ pub const SESSION_COOKIE: &str = "YT-HOME";
 
 pub const DEFAULT_CONFIG_JSON: &str = r#"{
   "log": {
-    "level": "info"
+    "level": "info",
+    "timestamp": true
   },
   "dns": {
-    "servers": [],
-    "rules": []
+    "servers": [
+      {
+        "type": "local",
+        "tag": "local-dns"
+      }
+    ],
+    "rules": [],
+    "final": "local-dns"
   },
   "route": {
     "rules": [
@@ -23,9 +30,16 @@ pub const DEFAULT_CONFIG_JSON: &str = r#"{
         ],
         "action": "hijack-dns"
       }
-    ]
+    ],
+    "rule_set": [],
+    "final": "direct",
+    "auto_detect_interface": true
   },
-  "experimental": {}
+  "experimental": {
+    "cache_file": {
+      "enabled": true
+    }
+  }
 }"#;
 
 pub fn default_settings() -> BTreeMap<&'static str, &'static str> {

@@ -19,10 +19,10 @@ COPY packaging/ ./packaging/
 COPY patches/ ./patches/
 COPY vendor/ ./vendor/
 COPY crates/ ./crates/
-RUN rustup target add x86_64-unknown-linux-musl \
-    && if [ -x /app/packaging/docker/YTHOME ]; then \
+RUN if [ -x /app/packaging/docker/YTHOME ]; then \
       cp /app/packaging/docker/YTHOME /app/YTHOME; \
     else \
+      rustup target add x86_64-unknown-linux-musl; \
       cargo build --offline --release --target x86_64-unknown-linux-musl -p app; \
       cp /app/target/x86_64-unknown-linux-musl/release/app /app/YTHOME; \
     fi
@@ -42,7 +42,7 @@ LABEL org.opencontainers.image.licenses="GPL-3.0-only"
 ENV YTHOME_WEB_DIR=/app/web
 ENV YTHOME_MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
-RUN apk add --no-cache ca-certificates tzdata openrc \
+RUN apk add --no-cache ca-certificates tzdata openrc openssh-server openssh-keygen \
     && mkdir -p /app/db
 COPY --chmod=755 scripts/container-init.sh /usr/local/bin/container-init
 COPY --chmod=755 --from=backend-builder /app/YTHOME /app/YTHOME
@@ -53,5 +53,5 @@ COPY --chmod=755 packaging/openrc/YTHOME /etc/init.d/YT-HOME
 RUN rc-update add YT-HOME default \
     && rm -f /sbin/init \
     && cp /usr/local/bin/container-init /sbin/init
-EXPOSE 80 2096
+EXPOSE 80 2096 22
 CMD ["/usr/local/bin/container-init"]

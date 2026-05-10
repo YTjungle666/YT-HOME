@@ -35,7 +35,7 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v2.0.10`
+- 当前版本：`v2.0.11`
 - 当前发布平台：`linux/amd64`
 
 ## 部署方式 1：一键安装
@@ -51,7 +51,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.10
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.11
 ```
 
 说明：
@@ -90,6 +90,31 @@ curl -LO https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/docker-compo
 docker compose up -d
 ```
 
+### 容器 SSH 访问
+
+Docker / CT 镜像内置 OpenSSH，但默认不启动。只有设置 `YTHOME_ENABLE_SSH=1` 时才会在容器内启动 `sshd`。
+
+- `YTHOME_SSH_PUBLIC_KEY`：写入一个或多个公钥，多个公钥可用换行分隔
+- `YTHOME_SSH_AUTHORIZED_KEYS`：指向容器内已有的 authorized_keys 文件
+- `YTHOME_SSH_PASSWORD_LOGIN=1`：允许密码登录；默认关闭密码登录，只允许密钥登录
+
+示例：
+
+```bash
+docker run -d \
+  --name yt-home \
+  --restart unless-stopped \
+  -p 80:80 \
+  -p 2096:2096 \
+  -p 2222:22 \
+  -e YTHOME_ENABLE_SSH=1 \
+  -e YTHOME_SSH_PUBLIC_KEY="$(cat ~/.ssh/id_ed25519.pub)" \
+  -v $(pwd)/db:/app/db \
+  ghcr.io/ytjungle666/yt-home:latest
+```
+
+如果在嵌套 Docker / 受限 PVE 环境里连接后立刻断开，说明容器安全策略拦截了 OpenSSH 的会话重执行；请改用 PVE CT 运行，或给 Docker 容器增加允许 OpenSSH 的 seccomp/privileged 配置。
+
 ## 部署方式 3：PVE CT 模板
 
 适合已经习惯在 `PVE LXC/CT` 里直接跑服务的环境。
@@ -122,6 +147,8 @@ pct start 210
 ## 修改管理员账号密码
 
 默认账号和密码都是 `admin`。首次部署后建议立即修改。
+
+面板中的“账号安全”页面可以直接修改当前管理员用户名和密码，也可以退出登录。修改后当前会话会失效，需要重新登录。
 
 ### 通过管理脚本修改
 
@@ -183,6 +210,9 @@ docker compose exec YT-HOME /app/YTHOME admin -show
 
 ## 使用建议
 
+- 面板保留主页、用户、入站、TLS、订阅、设置和账号安全等家庭回家常用功能
+- 出站、节点、服务、基础配置、路由和 DNS 等历史 S-UI 页面已从前端隐藏，对应 sing-box 运行配置由后端写入安全默认值
+- 手机和下游客户端订阅、链接导入、二维码流程仍然保留
 - 面板部署在内网服务器，公网只开放必要端口
 - 只有确实需要回家访问的入站才开启“代理回家”
 - Reality 节点建议使用你自己可控的域名

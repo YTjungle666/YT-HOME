@@ -30,39 +30,9 @@ const routes = [
         component: () => import('@/views/Clients.vue'),
       },
       {
-        path: '/outbounds',
-        name: 'pages.outbounds',
-        component: () => import('@/views/Outbounds.vue'),
-      },
-      {
-        path: '/services',
-        name: 'pages.services',
-        component: () => import('@/views/Services.vue'),
-      },
-      {
-        path: '/endpoints',
-        name: 'pages.endpoints',
-        component: () => import('@/views/Endpoints.vue'),
-      },
-      {
-        path: '/rules',
-        name: 'pages.rules',
-        component: () => import('@/views/Rules.vue'),
-      },
-      {
         path: '/tls',
         name: 'pages.tls',
         component: () => import('@/views/Tls.vue'),
-      },
-      {
-        path: '/basics',
-        name: 'pages.basics',
-        component: () => import('@/views/Basics.vue'),
-      },
-      {
-        path: '/dns',
-        name: 'pages.dns',
-        component: () => import('@/views/Dns.vue'),
       },
       {
         path: '/admins',
@@ -73,6 +43,10 @@ const routes = [
         path: '/settings',
         name: 'pages.settings',
         component: () => import('@/views/Settings.vue'),
+      },
+      {
+        path: '/:pathMatch(.*)*',
+        redirect: '/',
       },
     ],
   },

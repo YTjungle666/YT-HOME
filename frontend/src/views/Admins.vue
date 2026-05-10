@@ -1,161 +1,145 @@
 <template>
-  <AdminModal
-    v-model="editModal.visible"
-    :visible="editModal.visible"
-    :user="editModal.user"
-    @close="closeEditModal"
-    @save="saveEditModal"
-  />
-  <ChangeModal
-    v-model="changesModal.visible"
-    :visible="changesModal.visible"
-    :admins="users.map((u:any) => u.username)"
-    :actor="changesModal.actor"
-    @close="closeChangesModal"
-  />
-  <TokenModal
-    v-model="tokenModal.visible"
-    :visible="tokenModal.visible"
-    @close="closeTokenModal"
-  />
-  <v-row>
-    <v-col cols="12" justify="center" align="center">
-      <v-btn color="primary" @click="showChangesModal('')" style="margin: 0 5px;">{{ $t('admin.changes') }}</v-btn>
-      <v-btn color="primary" @click="showTokenModal()">{{ $t('admin.api.token') }}</v-btn>
-    </v-col>
-  </v-row>
-  <v-row>
-    <v-col cols="12" sm="4" md="3" lg="2" v-for="item in <any[]>users" :key="item.id">
-      <v-card rounded="xl" elevation="5" min-width="200" :title="item.username">
-        <v-card-subtitle style="margin-top: -15px;">
-          {{ $t('admin.lastLogin') }}
-        </v-card-subtitle>
+  <v-row justify="center">
+    <v-col cols="12" md="8" lg="6" xl="5">
+      <v-card :loading="loading" class="elevation-3">
+        <v-card-title>{{ $t('admin.accountSecurity') }}</v-card-title>
         <v-card-text>
-          <v-row>
-            <v-col>{{ $t('admin.date') }}</v-col>
-            <v-col>
-              {{ item.loginDate }}
-            </v-col>
-          </v-row>
-          <v-row>
-            <v-col>{{ $t('admin.time') }}</v-col>
-            <v-col>
-              {{ item.loginTime }}
-            </v-col>
-          </v-row>
-          <v-row>
-            <v-col>IP</v-col>
-            <v-col>
-              {{ item.ip }}
-            </v-col>
-          </v-row>
+          <v-form @submit.prevent="saveAccount">
+            <v-row>
+              <v-col cols="12">
+                <v-text-field
+                  v-model.trim="form.username"
+                  :label="$t('login.username')"
+                  prepend-inner-icon="mdi-account"
+                  autocomplete="username"
+                  :rules="[requiredRule]"
+                  hide-details="auto"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="form.currentPassword"
+                  :label="$t('admin.oldPass')"
+                  prepend-inner-icon="mdi-lock-check"
+                  type="password"
+                  autocomplete="current-password"
+                  :rules="[requiredRule]"
+                  hide-details="auto"
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="form.newPassword"
+                  :label="$t('admin.newPass')"
+                  prepend-inner-icon="mdi-lock-plus"
+                  type="password"
+                  autocomplete="new-password"
+                  :rules="[passwordLengthRule]"
+                  hide-details="auto"
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="form.confirmPassword"
+                  :label="$t('admin.confirmPass')"
+                  prepend-inner-icon="mdi-lock-alert"
+                  type="password"
+                  autocomplete="new-password"
+                  :rules="[confirmPasswordRule]"
+                  hide-details="auto"
+                />
+              </v-col>
+            </v-row>
+            <v-card-actions class="px-0">
+              <v-btn
+                color="primary"
+                type="submit"
+                prepend-icon="mdi-content-save"
+                :loading="loading"
+                :disabled="!canSave"
+              >
+                {{ $t('actions.save') }}
+              </v-btn>
+              <v-spacer />
+              <v-btn
+                variant="outlined"
+                color="warning"
+                prepend-icon="mdi-logout"
+                @click="logout"
+              >
+                {{ $t('menu.logout') }}
+              </v-btn>
+            </v-card-actions>
+          </v-form>
         </v-card-text>
-        <v-divider></v-divider>
-        <v-card-actions style="padding: 0;">
-          <v-btn icon="mdi-account-edit" @click="showEditModal(item)">
-            <v-icon />
-            <v-tooltip activator="parent" location="top" :text="$t('actions.edit')"></v-tooltip>
-          </v-btn>
-          <v-btn icon="mdi-list-box-outline" @click="showChangesModal(item.username)">
-            <v-icon />
-            <v-tooltip activator="parent" location="top" :text="$t('admin.changes')"></v-tooltip>
-          </v-btn>
-        </v-card-actions>
       </v-card>
     </v-col>
   </v-row>
 </template>
 
 <script lang="ts" setup>
-import AdminModal from '@/layouts/modals/Admin.vue'
-import ChangeModal  from '@/layouts/modals/Changes.vue'
-import TokenModal from '@/layouts/modals/Token.vue'
+import { computed, inject, onMounted, reactive, ref, Ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { i18n } from '@/locales'
-import HttpUtils from '@/plugins/httputil'
-import { Ref, ref, inject, onMounted } from 'vue'
+import HttpUtils, { logout } from '@/plugins/httputil'
+import { push } from 'notivue'
 
-const loading:Ref = inject('loading')?? ref(false)
+const router = useRouter()
+const loading: Ref = inject('loading') ?? ref(false)
 
-const users = ref(<any[]>[])
+const originalUsername = ref('')
+const form = reactive({
+  username: '',
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
+const requiredRule = (value: string) => !!value || i18n.global.t('login.unRules')
+const passwordLengthRule = (value: string) => {
+  return !value || value.length >= 8 || i18n.global.t('admin.passwordLength')
+}
+const confirmPasswordRule = (value: string) => {
+  return value === form.newPassword || i18n.global.t('admin.passwordMismatch')
+}
+
+const canSave = computed(() => {
+  const usernameChanged = form.username.trim() !== originalUsername.value
+  const passwordChanged = form.newPassword.length > 0
+  return form.username.trim().length > 0
+    && form.currentPassword.length > 0
+    && (!passwordChanged || (form.newPassword.length >= 8 && form.confirmPassword === form.newPassword))
+    && (usernameChanged || passwordChanged)
+})
 
 onMounted(async () => {
   loading.value = true
-  await loadData()
-  loading.value = false
-})
-
-const loadData = async () => {
-  loading.value = true
-  const msg = await HttpUtils.get('api/users')
-  loading.value = false
+  const msg = await HttpUtils.get('api/account')
   if (msg.success) {
-    msg.obj.forEach((u:any) => {
-      const lastLogin = u.lastLogin.split(" ")
-      const localLastLogin = lastLogin.length > 2 ? dateFormatted(Date.parse(lastLogin[0] + " " + lastLogin[1])) : "- -"
-      const loginDateTime = localLastLogin.split(" ")
-      users.value.push({
-        id: u.id,
-        username: u.username,
-        loginDate: loginDateTime[0],
-        loginTime: loginDateTime[1],
-        ip: lastLogin[2]?? "-",
-      })
+    originalUsername.value = msg.obj.username ?? ''
+    form.username = originalUsername.value
+  }
+  loading.value = false
+})
+
+const saveAccount = async () => {
+  if (!canSave.value) return
+
+  loading.value = true
+  const msg = await HttpUtils.post('api/account', {
+    username: form.username.trim(),
+    currentPassword: form.currentPassword,
+    newPassword: form.newPassword,
+  })
+  loading.value = false
+
+  if (msg.success) {
+    push.success({
+      title: i18n.global.t('success'),
+      duration: 5000,
+      message: i18n.global.t('admin.loginAgain'),
     })
+    await router.replace('/login')
   }
-}
-
-const dateFormatted = (dt: number): string => {
-  const locale = i18n.global.locale.value.replace('zh', 'zh-')
-  const date = new Date(dt)
-  return date.toLocaleString(locale)
-}
-
-const editModal = ref({
-  visible: false,
-  user: {},
-})
-
-const showEditModal = (user: any) => {
-  editModal.value.user = user
-  editModal.value.visible = true
-}
-const closeEditModal = () => {
-  editModal.value.visible = false
-  editModal.value.user = {}
-}
-const saveEditModal = async (data:any) => {
-  loading.value=true
-  const response = await HttpUtils.post('api/changePass',data)
-  if(response.success){
-    setTimeout(() => {
-      loading.value=false
-      editModal.value.visible = false
-    }, 500)
-  } else {
-    loading.value=false
-  }
-}
-
-const changesModal = ref({
-  visible: false,
-  actor: '',
-})
-const showChangesModal = (actor: string) => {
-  changesModal.value.actor = actor
-  changesModal.value.visible = true
-}
-const closeChangesModal = () => {
-  changesModal.value.visible = false
-  changesModal.value.actor = ''
-}
-
-const tokenModal = ref({
-  visible: false,
-})
-const showTokenModal = () => {
-  tokenModal.value.visible = true
-}
-const closeTokenModal = () => {
-  tokenModal.value.visible = false
 }
 </script>

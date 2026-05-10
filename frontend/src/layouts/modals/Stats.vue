@@ -133,7 +133,13 @@ export default {
       this.loading = true
       const data = await HttpUtils.get('api/stats', { resource: this.resource, tag: this.tag, limit: this.limit })
       if (data.success && data.obj) {
-        const obj = <any[]>data.obj
+        const obj = Array.isArray(data.obj) ? <any[]>data.obj : []
+        if (obj.length === 0) {
+          this.alert = true
+          this.loaded = false
+          this.loading = false
+          return
+        }
         const l = 'zh-CN'
         const oneStep = this.limit * 3600 * 1000 / 360 // Each 10 sec
         const now = new Date().getTime()
@@ -142,14 +148,14 @@ export default {
           steps.push(now - (oneStep * i))
         }
         const labels = <string[]>[]
-        const uplinkData = <number[]>[]
-        const downlinkData = <number[]>[]
-        for (let i = 1; i<360; i++) {
+        const uplinkData = <(number | null)[]>[]
+        const downlinkData = <(number | null)[]>[]
+        for (let i = 1; i<=360; i++) {
           labels.push(this.genLable(steps[i],l))
-          const upTraffics = obj.filter(o => o.direction && o.dateTime*1000 < steps[i] && o.dateTime*1000 > steps[i-1]).map((o:any) => o.traffic)
-          const upSum = upTraffics.length>0 ? upTraffics.reduce(u => u) : null
-          const downTraffics = obj.filter(o => !o.direction && o.dateTime*1000 < steps[i] && o.dateTime*1000 > steps[i-1]).map((o:any) => o.traffic)
-          const downSum = downTraffics.length>0 ? downTraffics.reduce(d => d) : null
+          const upTraffics = obj.filter(o => o.direction && o.dateTime*1000 >= steps[i-1] && o.dateTime*1000 < steps[i]).map((o:any) => Number(o.traffic) || 0)
+          const upSum = upTraffics.length>0 ? upTraffics.reduce((acc, traffic) => acc + traffic, 0) : null
+          const downTraffics = obj.filter(o => !o.direction && o.dateTime*1000 >= steps[i-1] && o.dateTime*1000 < steps[i]).map((o:any) => Number(o.traffic) || 0)
+          const downSum = downTraffics.length>0 ? downTraffics.reduce((acc, traffic) => acc + traffic, 0) : null
           uplinkData.push(upSum)
           downlinkData.push(downSum)
         }

@@ -18,6 +18,7 @@ use tracing::warn;
 
 pub const DEFAULT_ADMIN_USERNAME: &str = "admin";
 pub const DEFAULT_ADMIN_PASSWORD: &str = "admin";
+pub const MIN_ACCOUNT_PASSWORD_LEN: usize = 8;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthenticatedUser {
@@ -273,6 +274,71 @@ impl AuthService {
         Ok(())
     }
 
+    pub async fn update_account(
+        &self,
+        id: i64,
+        current_password: &str,
+        username: &str,
+        new_password: Option<&str>,
+    ) -> AppResult<()> {
+        let next_username = username.trim();
+        if next_username.is_empty() {
+            return Err(AppError::Validation("username can not be empty".to_string()));
+        }
+        if current_password.is_empty() {
+            return Err(AppError::Validation("current password can not be empty".to_string()));
+        }
+
+        let Some(user) = sqlx::query_as::<_, UserRow>(
+            "SELECT id, username, password, last_logins FROM users WHERE id = ? LIMIT 1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?
+        else {
+            return Err(AppError::NotFound("user not found".to_string()));
+        };
+
+        let (matches, _) = verify_password(&user.password, current_password)?;
+        if !matches {
+            return Err(AppError::Authentication("wrong user or password".to_string()));
+        }
+
+        if let Some(existing_id) =
+            sqlx::query_scalar::<_, i64>("SELECT id FROM users WHERE username = ? LIMIT 1")
+                .bind(next_username)
+                .fetch_optional(&self.pool)
+                .await?
+            && existing_id != id
+        {
+            return Err(AppError::Conflict("username already exists".to_string()));
+        }
+
+        let next_password = match new_password.map(str::trim).filter(|value| !value.is_empty()) {
+            Some(value) => {
+                if value.len() < MIN_ACCOUNT_PASSWORD_LEN {
+                    return Err(AppError::Validation(format!(
+                        "password must be at least {MIN_ACCOUNT_PASSWORD_LEN} characters"
+                    )));
+                }
+                hash_password(value)?
+            }
+            None => user.password,
+        };
+
+        sqlx::query("UPDATE users SET username = ?, password = ? WHERE id = ?")
+            .bind(next_username)
+            .bind(next_password)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        sqlx::query("DELETE FROM user_sessions WHERE user_id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn load_tokens(&self) -> AppResult<Vec<LoadedToken>> {
         let rows = sqlx::query_as::<_, TokenRow>(
             "SELECT id, desc, token, expiry, user_id FROM tokens WHERE expiry = 0 OR expiry > ?",
@@ -372,6 +438,7 @@ impl AuthService {
 pub struct AuthenticatedUserView {
     pub id: i64,
     pub username: String,
+    #[serde(rename = "lastLogin")]
     pub last_login: String,
 }
 

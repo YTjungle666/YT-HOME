@@ -48,6 +48,7 @@ pub fn router(
         .route("/api/login", post(login))
         .route("/api/logout", get(logout))
         .route("/api/session", get(get_session))
+        .route("/api/account", get(get_account).post(update_account))
         .route("/api/load", get(load_data))
         .route("/api/users", get(get_users))
         .route("/api/settings", get(get_settings))
@@ -161,6 +162,36 @@ async fn get_session(
     }))))
 }
 
+async fn get_account(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Result<Json<ApiMessage<Value>>, Json<ApiMessage<Value>>> {
+    let user = current_user(&state, &jar).await?;
+    Ok(Json(ApiMessage::success(json!({
+        "id": user.id,
+        "username": user.username,
+    }))))
+}
+
+async fn update_account(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Form(form): Form<AccountForm>,
+) -> Result<Json<ApiMessage<Value>>, Json<ApiMessage<Value>>> {
+    let user = current_user(&state, &jar).await?;
+    state
+        .auth
+        .update_account(
+            user.id,
+            &form.current_password,
+            &form.username,
+            form.new_password.as_deref(),
+        )
+        .await
+        .map_err(api_error)?;
+    Ok(Json(ApiMessage::action("save")))
+}
+
 async fn load_data(
     State(state): State<AppState>,
     jar: CookieJar,
@@ -173,6 +204,7 @@ async fn load_data(
     let host = extract_host(&headers);
     let mut payload =
         state.settings.load_dashboard_data(&host, include_full_payload).await.map_err(api_error)?;
+    payload["onlines"] = state.stats.get_onlines().await.map_err(api_error)?;
 
     if state.core.status().await["running"] == Value::Bool(false) {
         let logs = state.core.logs(1, None).await;
@@ -222,7 +254,7 @@ async fn get_stats(
     let _user = current_user(&state, &jar).await?;
     let stats = state
         .stats
-        .get_stats(query.resource.as_deref(), query.tag.as_deref(), query.limit.unwrap_or(100))
+        .get_stats(query.resource.as_deref(), query.tag.as_deref(), query.limit.unwrap_or(24))
         .await
         .map_err(api_error)?;
     Ok(Json(ApiMessage::success(json!(stats))))
@@ -767,6 +799,15 @@ struct ChangePassForm {
     new_username: String,
     #[serde(rename = "newPass")]
     new_pass: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccountForm {
+    username: String,
+    #[serde(rename = "currentPassword")]
+    current_password: String,
+    #[serde(rename = "newPassword")]
+    new_password: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

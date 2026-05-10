@@ -152,12 +152,12 @@
           </span>
         </template>
         <template v-slot:item.volume="{ item }">
-          <div class="text-start" v-tooltip:top="'↓' + HumanReadable.sizeFormat(item.down) + ' - ' + HumanReadable.sizeFormat(item.up) + '↑'">
+          <div class="text-start" v-tooltip:top="'↓' + HumanReadable.sizeFormat(trafficDown(item)) + ' - ' + HumanReadable.sizeFormat(trafficUp(item)) + '↑'">
             <v-chip
               size="small"
-              :color="item.volume==0 ? 'success' : item.volume<=(item.up + item.down)? 'error': ''"
+              :color="item.volume==0 ? 'success' : item.volume<=trafficUsed(item)? 'error': ''"
               label
-            >{{ HumanReadable.sizeFormat(item.up + item.down) + ' / ' + (item.volume == 0 ? $t('unlimited') : HumanReadable.sizeFormat(item.volume)) }}</v-chip>
+            >{{ HumanReadable.sizeFormat(trafficUsed(item)) + ' / ' + (item.volume == 0 ? $t('unlimited') : HumanReadable.sizeFormat(item.volume)) }}</v-chip>
           </div>
           <v-progress-linear
             :model-value="percent(item)"
@@ -418,7 +418,11 @@ const closeEditBulk = () => {
   editBulkModal.value = false
 }
 
-const percent = (c: Client) => { return c.volume>0 ? Math.round((c.up+c.down) *100 / c.volume) : 0 }
-const percentColor = (c: Client) => { return (c.up+c.down) >= c.volume ? 'error' : percent(c)>90 ? 'warning' : 'success' }
+const safeTraffic = (value: number | undefined) => Number.isFinite(value) ? Number(value) : 0
+const trafficUp = (c: Client & { totalUp?: number }) => safeTraffic(c.up) + safeTraffic(c.totalUp)
+const trafficDown = (c: Client & { totalDown?: number }) => safeTraffic(c.down) + safeTraffic(c.totalDown)
+const trafficUsed = (c: Client & { totalUp?: number, totalDown?: number }) => trafficUp(c) + trafficDown(c)
+const percent = (c: Client & { totalUp?: number, totalDown?: number }) => { return c.volume>0 ? Math.round(trafficUsed(c) *100 / c.volume) : 0 }
+const percentColor = (c: Client & { totalUp?: number, totalDown?: number }) => { return trafficUsed(c) >= c.volume ? 'error' : percent(c)>90 ? 'warning' : 'success' }
 
 </script>
