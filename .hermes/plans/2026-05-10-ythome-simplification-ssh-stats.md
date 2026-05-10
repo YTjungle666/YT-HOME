@@ -350,9 +350,10 @@ Use `gh` to inspect GitHub Actions for the pushed branch/tag. Fix actionable fai
   - Removed unsupported Alpine `UsePAM` sshd option.
   - Unlocked Alpine's default locked root entry without setting a password so public-key auth works; empty-password login remains denied.
   - Dockerfile now skips `rustup target add` when a prebuilt `/app/packaging/docker/YTHOME` binary is supplied for validation builds.
-- The frontend package lock remains intentionally limited to the project version bump; no dependency upgrade is intended. Cargo.lock also records direct local-package dependency edges for already locked `reqwest`/`tokio` use, with no crate version upgrades.
+- GitHub CI initially failed on `npm audit --audit-level=high` because axios 1.15.0/1.15.1 is now covered by high-severity advisories. The frontend axios dependency and lock entry were intentionally upgraded to 1.16.0; local `npm --prefix frontend audit --audit-level=high` reports zero vulnerabilities.
+- Cargo.lock records direct local-package dependency edges for already locked `reqwest`/`tokio` use, with no crate version upgrades.
 - Fix-pass summary is recorded in `.hermes/reviews/2026-05-10-codex-fix-pass.md`.
-- Next phase: commit, push, and check GitHub Actions.
+- Next phase: push the CI fix, move the just-created `v2.0.11` tag to the fixed commit, and re-check GitHub Actions.
 
 ## Acceptance Criteria
 
