@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  SING_BOX_VERSION: "1.13.5"
+  SING_BOX_VERSION: "1.13.11"
 
 jobs:
   ensure-release:
@@ -65,6 +65,7 @@ jobs:
 
       - name: Assemble release bundle
         run: |
+          "$RUNNER_TEMP/export/app/sing-box" version | grep -F with_v2ray_api
           rm -rf YT-HOME
           mkdir -p YT-HOME/packaging/openrc
           cp "$RUNNER_TEMP/export/app/YTHOME" YT-HOME/

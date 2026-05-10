@@ -19,6 +19,6 @@ rm -fr migrations/*
 cp -R crates/infra-db/migrations/. migrations/
 
 cargo build --release -p app
-sh ./scripts/fetch-sing-box.sh linux amd64 . "${SING_BOX_VERSION:-1.13.5}"
+sh ./scripts/build-sing-box.sh linux amd64 . "${SING_BOX_VERSION:-1.13.11}"
 cp target/release/app ./YTHOME
 chmod +x ./YTHOME ./sing-box

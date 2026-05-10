@@ -5,12 +5,35 @@ import { i18n } from '@/locales'
 import { Inbound } from '@/types/inbounds'
 import { Client } from '@/types/clients'
 
+export interface TrafficStatus {
+  enabled: boolean
+  source: string
+  healthy: boolean
+  message: string
+  lastSuccessAt: number | null
+  lastErrorAt: number | null
+  lastFallbackAt: number | null
+  updatedAt: number | null
+}
+
+const defaultTrafficStatus = (): TrafficStatus => ({
+  enabled: false,
+  source: 'disabled',
+  healthy: false,
+  message: '',
+  lastSuccessAt: null,
+  lastErrorAt: null,
+  lastFallbackAt: null,
+  updatedAt: null,
+})
+
 const Data = defineStore('Data', {
   state: () => ({
     lastLoad: 0,
     reloadItems: localStorage.getItem("reloadItems")?.split(',')?? <string[]>[],
     subURI: "",
     enableTraffic: false,
+    trafficStatus: defaultTrafficStatus(),
     onlines: {inbound: <string[]>[], outbound: <string[]>[], user: <string[]>[]},
     config: <any>{},
     inbounds: <any[]>[],
@@ -25,6 +48,10 @@ const Data = defineStore('Data', {
       const msg = await HttpUtils.get('api/load', this.lastLoad >0 ? {lu: this.lastLoad} : {} )
       if(msg.success) {
         this.onlines = msg.obj.onlines
+        if (msg.obj.trafficStatus) {
+          this.trafficStatus = { ...defaultTrafficStatus(), ...msg.obj.trafficStatus }
+          this.enableTraffic = this.trafficStatus.enabled
+        }
         if (msg.obj.lastLog) {
           push.error({
             title: i18n.global.t('error.core'),
@@ -41,7 +68,8 @@ const Data = defineStore('Data', {
     setNewData(data: any) {
       this.lastLoad = Math.floor((new Date()).getTime()/1000)
       if (data.subURI) this.subURI = data.subURI
-      if (data.enableTraffic) this.enableTraffic = data.enableTraffic
+      if (Object.hasOwn(data, 'enableTraffic')) this.enableTraffic = data.enableTraffic
+      if (data.trafficStatus) this.trafficStatus = { ...defaultTrafficStatus(), ...data.trafficStatus }
       if (data.config) this.config = data.config
       if (Object.hasOwn(data, 'clients')) this.clients = data.clients ?? []
       if (Object.hasOwn(data, 'inbounds')) this.inbounds = data.inbounds ?? []

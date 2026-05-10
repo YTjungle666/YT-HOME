@@ -48,12 +48,98 @@ struct TrafficCounters {
     values: BTreeMap<String, u64>,
 }
 
+#[derive(Debug, Clone)]
+struct TrafficStatusState {
+    enabled: bool,
+    source: String,
+    healthy: bool,
+    message: String,
+    last_success_at: Option<i64>,
+    last_error_at: Option<i64>,
+    last_fallback_at: Option<i64>,
+    updated_at: Option<i64>,
+}
+
+impl Default for TrafficStatusState {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            source: "disabled".to_string(),
+            healthy: false,
+            message: "Traffic collection has not run yet.".to_string(),
+            last_success_at: None,
+            last_error_at: None,
+            last_fallback_at: None,
+            updated_at: None,
+        }
+    }
+}
+
+impl TrafficStatusState {
+    fn disabled(now: i64) -> Self {
+        Self {
+            enabled: false,
+            source: "disabled".to_string(),
+            healthy: false,
+            message: "Traffic collection is disabled.".to_string(),
+            last_success_at: None,
+            last_error_at: None,
+            last_fallback_at: None,
+            updated_at: Some(now),
+        }
+    }
+
+    fn waiting_for_api(now: i64) -> Self {
+        Self {
+            enabled: true,
+            source: "v2ray-api".to_string(),
+            healthy: false,
+            message: "Waiting for V2Ray API stats collection.".to_string(),
+            last_success_at: None,
+            last_error_at: None,
+            last_fallback_at: None,
+            updated_at: Some(now),
+        }
+    }
+
+    fn unavailable_from(previous: Self, now: i64, source: &str, message: &str) -> Self {
+        Self {
+            enabled: true,
+            source: source.to_string(),
+            healthy: false,
+            message: message.to_string(),
+            last_success_at: previous.last_success_at,
+            last_error_at: previous.last_error_at,
+            last_fallback_at: if source == "fallback-client-counters" {
+                Some(now)
+            } else {
+                previous.last_fallback_at
+            },
+            updated_at: Some(now),
+        }
+    }
+
+    fn to_json(&self) -> Value {
+        json!({
+            "enabled": self.enabled,
+            "source": self.source,
+            "healthy": self.healthy,
+            "message": self.message,
+            "lastSuccessAt": self.last_success_at,
+            "lastErrorAt": self.last_error_at,
+            "lastFallbackAt": self.last_fallback_at,
+            "updatedAt": self.updated_at,
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct StatsService {
     pool: Db,
     runtime: Arc<RwLock<RuntimeStats>>,
     runtime_counters: Arc<RwLock<TrafficCounters>>,
     app_counters: Arc<RwLock<TrafficCounters>>,
+    traffic_status: Arc<RwLock<TrafficStatusState>>,
 }
 
 impl StatsService {
@@ -63,6 +149,7 @@ impl StatsService {
             runtime: Arc::new(RwLock::new(RuntimeStats::new())),
             runtime_counters: Arc::new(RwLock::new(TrafficCounters::default())),
             app_counters: Arc::new(RwLock::new(TrafficCounters::default())),
+            traffic_status: Arc::new(RwLock::new(TrafficStatusState::default())),
         }
     }
 
@@ -146,26 +233,85 @@ impl StatsService {
         let now = OffsetDateTime::now_utc().unix_timestamp();
         if traffic_age_days <= 0 {
             self.reset_traffic_collection().await?;
+            self.mark_traffic_disabled(now).await;
             return Ok(());
         }
 
         self.prune_old_stats(now, traffic_age_days).await?;
 
         let Some(config) = core.current_config().await else {
+            self.mark_traffic_unavailable(
+                now,
+                "fallback-client-counters",
+                "sing-box runtime config is not available; using stored client counters only.",
+            )
+            .await;
             self.collect_client_counter_deltas(now).await?;
             return Ok(());
         };
         let Some(api) = runtime_stats_api_from_config(&config) else {
+            self.mark_traffic_unavailable(
+                now,
+                "unavailable",
+                "Stats API is not configured; verify sing-box was built with with_v2ray_api and YTHOME_V2RAY_API_LISTEN is not disabled.",
+            )
+            .await;
             self.collect_client_counter_deltas(now).await?;
             return Ok(());
         };
 
         match query_v2ray_stats(&api.listen).await {
-            Ok(counters) => self.store_runtime_counter_deltas(now, counters).await,
-            Err(error) => {
-                debug!("runtime stats API collection skipped: {}", error.message());
+            Ok(counters) => {
+                self.store_runtime_counter_deltas(now, counters).await?;
+                self.sync_client_counter_baseline().await?;
+                self.mark_traffic_success(now).await;
                 Ok(())
             }
+            Err(error) => {
+                let message = format!(
+                    "Stats API query failed; using stored client counters only: {}",
+                    error.message()
+                );
+                debug!("runtime stats API collection skipped: {}", error.message());
+                self.mark_traffic_query_error(now, &message).await;
+                self.collect_client_counter_deltas(now).await?;
+                self.mark_traffic_error_fallback(now, &message).await;
+                Ok(())
+            }
+        }
+    }
+
+    pub async fn traffic_status(&self, traffic_age_days: i64, core: &CoreService) -> Value {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        if traffic_age_days <= 0 {
+            return TrafficStatusState::disabled(now).to_json();
+        }
+
+        let cached = self.traffic_status.read().await.clone();
+        let Some(config) = core.current_config().await else {
+            return TrafficStatusState::unavailable_from(
+                cached,
+                now,
+                "fallback-client-counters",
+                "sing-box is not running; using stored client counters only.",
+            )
+            .to_json();
+        };
+
+        if runtime_stats_api_from_config(&config).is_none() {
+            return TrafficStatusState::unavailable_from(
+                cached,
+                now,
+                "unavailable",
+                "Stats API is not configured; verify sing-box was built with with_v2ray_api and YTHOME_V2RAY_API_LISTEN is not disabled.",
+            )
+            .to_json();
+        }
+
+        if cached.enabled && cached.updated_at.is_some() {
+            cached.to_json()
+        } else {
+            TrafficStatusState::waiting_for_api(now).to_json()
         }
     }
 
@@ -174,6 +320,52 @@ impl StatsService {
         self.runtime_counters.write().await.values.clear();
         self.app_counters.write().await.values.clear();
         Ok(())
+    }
+
+    async fn mark_traffic_disabled(&self, now: i64) {
+        *self.traffic_status.write().await = TrafficStatusState::disabled(now);
+    }
+
+    async fn mark_traffic_success(&self, now: i64) {
+        let mut status = self.traffic_status.write().await;
+        status.enabled = true;
+        status.source = "v2ray-api".to_string();
+        status.healthy = true;
+        status.message = "Traffic stats are available from sing-box V2Ray API.".to_string();
+        status.last_success_at = Some(now);
+        status.updated_at = Some(now);
+    }
+
+    async fn mark_traffic_unavailable(&self, now: i64, source: &str, message: &str) {
+        let mut status = self.traffic_status.write().await;
+        status.enabled = true;
+        status.source = source.to_string();
+        status.healthy = false;
+        status.message = message.to_string();
+        if source == "fallback-client-counters" {
+            status.last_fallback_at = Some(now);
+        }
+        status.updated_at = Some(now);
+    }
+
+    async fn mark_traffic_query_error(&self, now: i64, message: &str) {
+        let mut status = self.traffic_status.write().await;
+        status.enabled = true;
+        status.source = "fallback-client-counters".to_string();
+        status.healthy = false;
+        status.message = message.to_string();
+        status.last_error_at = Some(now);
+        status.updated_at = Some(now);
+    }
+
+    async fn mark_traffic_error_fallback(&self, now: i64, message: &str) {
+        let mut status = self.traffic_status.write().await;
+        status.enabled = true;
+        status.source = "fallback-client-counters".to_string();
+        status.healthy = false;
+        status.message = message.to_string();
+        status.last_fallback_at = Some(now);
+        status.updated_at = Some(now);
     }
 
     async fn prune_old_stats(&self, now: i64, traffic_age_days: i64) -> AppResult<()> {
@@ -198,7 +390,22 @@ impl StatsService {
         self.insert_traffic_deltas(now, deltas, true).await
     }
 
+    async fn sync_client_counter_baseline(&self) -> AppResult<()> {
+        let counters = self.current_client_counters().await?;
+        self.app_counters.write().await.values = counters;
+        Ok(())
+    }
+
     async fn collect_client_counter_deltas(&self, now: i64) -> AppResult<()> {
+        let counters = self.current_client_counters().await?;
+        let deltas = {
+            let mut state = self.app_counters.write().await;
+            counter_deltas(&mut state.values, &counters)
+        };
+        self.insert_traffic_deltas(now, deltas, false).await
+    }
+
+    async fn current_client_counters(&self) -> AppResult<BTreeMap<String, u64>> {
         let rows = sqlx::query(
             r#"
             SELECT name, up, down, total_up, total_down
@@ -222,12 +429,7 @@ impl StatsService {
             counters.insert(format!("user>>>{name}>>>traffic>>>uplink"), up);
             counters.insert(format!("user>>>{name}>>>traffic>>>downlink"), down);
         }
-
-        let deltas = {
-            let mut state = self.app_counters.write().await;
-            counter_deltas(&mut state.values, &counters)
-        };
-        self.insert_traffic_deltas(now, deltas, false).await
+        Ok(counters)
     }
 
     async fn insert_traffic_deltas(
@@ -853,12 +1055,12 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
 
     use serde_json::json;
-    use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::{Row, sqlite::SqlitePoolOptions};
 
     use super::{
         ProcessTreeNode, StatsService, counter_deltas, decode_grpc_messages,
         decode_query_stats_response, encode_grpc_message, encode_varint, online_snapshot_from_rows,
-        resolve_instance_boot_time,
+        resolve_instance_boot_time, runtime_stats_api_from_config,
     };
 
     #[test]
@@ -938,6 +1140,86 @@ mod tests {
     }
 
     #[test]
+    fn runtime_stats_api_from_config_requires_enabled_v2ray_stats() {
+        let config = json!({
+            "experimental": {
+                "v2ray_api": {
+                    "listen": "127.0.0.1:21085",
+                    "stats": { "enabled": true }
+                }
+            }
+        })
+        .to_string();
+        let api = runtime_stats_api_from_config(&config).expect("stats API config");
+        assert_eq!(api.listen, "127.0.0.1:21085");
+
+        let disabled = json!({
+            "experimental": {
+                "v2ray_api": {
+                    "listen": "127.0.0.1:21085",
+                    "stats": { "enabled": false }
+                }
+            }
+        })
+        .to_string();
+        assert!(runtime_stats_api_from_config(&disabled).is_none());
+    }
+
+    #[tokio::test]
+    async fn traffic_status_markers_report_practical_timestamps() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("connect sqlite");
+        let service = StatsService::new(pool);
+
+        service.mark_traffic_success(100).await;
+        let status = service.traffic_status.read().await.to_json();
+        assert_eq!(status["enabled"], true);
+        assert_eq!(status["source"], "v2ray-api");
+        assert_eq!(status["healthy"], true);
+        assert_eq!(status["lastSuccessAt"], 100);
+
+        service.mark_traffic_query_error(120, "query failed").await;
+        service.mark_traffic_error_fallback(121, "query failed").await;
+        let status = service.traffic_status.read().await.to_json();
+        assert_eq!(status["enabled"], true);
+        assert_eq!(status["source"], "fallback-client-counters");
+        assert_eq!(status["healthy"], false);
+        assert_eq!(status["lastErrorAt"], 120);
+        assert_eq!(status["lastFallbackAt"], 121);
+    }
+
+    #[test]
+    fn traffic_status_unavailable_refreshes_updated_at_and_preserves_success() {
+        let previous = super::TrafficStatusState {
+            enabled: true,
+            source: "v2ray-api".to_string(),
+            healthy: true,
+            message: "ok".to_string(),
+            last_success_at: Some(100),
+            last_error_at: None,
+            last_fallback_at: None,
+            updated_at: Some(100),
+        };
+
+        let status = super::TrafficStatusState::unavailable_from(
+            previous,
+            130,
+            "fallback-client-counters",
+            "fallback",
+        )
+        .to_json();
+
+        assert_eq!(status["enabled"], true);
+        assert_eq!(status["healthy"], false);
+        assert_eq!(status["lastSuccessAt"], 100);
+        assert_eq!(status["lastFallbackAt"], 130);
+        assert_eq!(status["updatedAt"], 130);
+    }
+
+    #[test]
     fn grpc_query_stats_response_decodes_v2ray_counters() {
         let mut stat = Vec::new();
         stat.push(0x0a);
@@ -956,6 +1238,80 @@ mod tests {
         let counters = decode_query_stats_response(&messages[0]).expect("decode query stats");
 
         assert_eq!(counters.get(name), Some(&321));
+    }
+
+    #[tokio::test]
+    async fn fallback_baseline_is_synced_after_api_success_to_avoid_double_insert() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("connect sqlite");
+        sqlx::query(
+            r#"
+            CREATE TABLE stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date_time INTEGER NOT NULL,
+                resource TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                direction INTEGER NOT NULL,
+                traffic INTEGER NOT NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("create stats");
+        sqlx::query(
+            r#"
+            CREATE TABLE clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                up INTEGER NOT NULL DEFAULT 0,
+                down INTEGER NOT NULL DEFAULT 0,
+                total_up INTEGER NOT NULL DEFAULT 0,
+                total_down INTEGER NOT NULL DEFAULT 0,
+                enable INTEGER NOT NULL DEFAULT 1
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .expect("create clients");
+        sqlx::query("INSERT INTO clients (name, enable) VALUES ('alice', 1)")
+            .execute(&pool)
+            .await
+            .expect("insert client");
+        let service = StatsService::new(pool.clone());
+        let counters = |up, down| {
+            BTreeMap::from([
+                ("user>>>alice>>>traffic>>>uplink".to_string(), up),
+                ("user>>>alice>>>traffic>>>downlink".to_string(), down),
+            ])
+        };
+
+        service.store_runtime_counter_deltas(10, counters(0, 0)).await.expect("prime api");
+        service.sync_client_counter_baseline().await.expect("prime fallback baseline");
+        service.store_runtime_counter_deltas(20, counters(100, 50)).await.expect("store api");
+        service.sync_client_counter_baseline().await.expect("sync fallback baseline");
+        service.collect_client_counter_deltas(30).await.expect("fallback after api");
+        service.store_runtime_counter_deltas(40, counters(150, 70)).await.expect("store next api");
+        service.sync_client_counter_baseline().await.expect("sync next fallback baseline");
+        service.collect_client_counter_deltas(50).await.expect("next fallback after api");
+
+        let summary =
+            sqlx::query("SELECT COUNT(*) AS rows, COALESCE(SUM(traffic), 0) AS traffic FROM stats")
+                .fetch_one(&pool)
+                .await
+                .expect("stats summary");
+        assert_eq!(summary.get::<i64, _>("rows"), 4);
+        assert_eq!(summary.get::<i64, _>("traffic"), 220);
+        let client = sqlx::query("SELECT up, down FROM clients WHERE name = 'alice'")
+            .fetch_one(&pool)
+            .await
+            .expect("client row");
+        assert_eq!(client.get::<i64, _>("up"), 150);
+        assert_eq!(client.get::<i64, _>("down"), 70);
     }
 
     #[tokio::test]

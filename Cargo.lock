@@ -31,7 +31,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "axum",
  "domain-auth",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "domain-auth"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "argon2",
  "axum-extra",
@@ -561,7 +561,7 @@ dependencies = [
 
 [[package]]
 name = "domain-config"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "domain-subscription",
  "infra-db",
@@ -576,7 +576,7 @@ dependencies = [
 
 [[package]]
 name = "domain-core"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "base64",
  "rcgen",
@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "domain-stats"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "domain-core",
  "if-addrs",
@@ -609,7 +609,7 @@ dependencies = [
 
 [[package]]
 name = "domain-subscription"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "base64",
  "infra-db",
@@ -917,7 +917,7 @@ dependencies = [
 
 [[package]]
 name = "http-api"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "axum",
  "axum-extra",
@@ -1171,7 +1171,7 @@ dependencies = [
 
 [[package]]
 name = "infra-db"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "serde_json",
  "shared",
@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "infra-observability"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "tracing",
  "tracing-subscriber",
@@ -1191,7 +1191,7 @@ dependencies = [
 
 [[package]]
 name = "infra-scheduler"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "domain-config",
  "domain-core",
@@ -2022,7 +2022,7 @@ dependencies = [
 
 [[package]]
 name = "shared"
-version = "2.0.11"
+version = "2.0.12"
 dependencies = [
  "serde",
  "serde_json",

@@ -61,6 +61,17 @@
           </v-btn>
         </v-col>
       </v-row>
+      <v-row class="d-flex align-center justify-center" v-if="trafficStatusHint">
+        <v-col cols="12" md="8" lg="6">
+          <v-alert
+            density="compact"
+            type="warning"
+            variant="tonal"
+            class="text-start"
+            :text="trafficStatusHint"
+          ></v-alert>
+        </v-col>
+      </v-row>
       <v-row>
         <v-col cols="12" sm="6" md="3" v-for="i in reloadItems" :key="i">
           <v-card class="rounded-lg" variant="outlined" height="210px" elevation="5">
@@ -276,6 +287,13 @@ const coreUptimeSeconds = computed(() => {
 })
 
 const coreUptimeText = computed(() => HumanReadable.formatSecond(coreUptimeSeconds.value))
+
+const trafficStatusHint = computed(() => {
+  const status = Data().trafficStatus
+  if (!status.enabled) return ''
+  if (status.healthy && status.source === 'v2ray-api') return ''
+  return status.message
+})
 
 const reloadData = async () => {
   let request = [...new Set(reloadItems.value.map(r => r.split('-')[1]))]

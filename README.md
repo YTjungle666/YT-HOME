@@ -35,8 +35,9 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v2.0.11`
+- 当前版本：`v2.0.12`
 - 当前发布平台：`linux/amd64`
+- 默认 `sing-box`：`1.13.11`，源码构建并启用 `with_v2ray_api`
 
 ## 部署方式 1：一键安装
 
@@ -51,7 +52,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.11
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.12
 ```
 
 说明：
@@ -207,6 +208,17 @@ docker compose exec YT-HOME /app/YTHOME admin -show
 - PVE CT rootfs：`yt-home-ct-amd64-rootfs.tar.gz`
 - Docker 镜像：`ghcr.io/ytjungle666/yt-home`
 - Release 页面：<https://github.com/YTjungle666/YT-HOME/releases>
+
+## sing-box 与流量统计
+
+默认发布产物会从上游 `SagerNet/sing-box` 源码标签 `v1.13.11` 构建运行核心，使用上游默认 release build tags、额外启用 `with_v2ray_api`，并在 Linux 上默认采用 purego/CGO-disabled 构建以避免拉取大型 naive/cronet CGO 工具链。这个能力用于读取 `sing-box` V2Ray StatsService，提供客户端、入站和出站的上传/下载统计。
+
+- 构建时可用 `SING_BOX_VERSION` 覆盖源码标签，但运行统计仍要求构建结果的 `sing-box version` 输出包含 `with_v2ray_api`
+- `YTHOME_V2RAY_API_LISTEN` 默认是本机地址 `127.0.0.1:21085`
+- 设置 `YTHOME_V2RAY_API_LISTEN=off`、`0`、`false` 或 `disabled` 会关闭 StatsService 注入
+- 官方 `sing-box` release 二进制通常没有 `with_v2ray_api`；如果用 `YTHOME_SING_BOX_BIN` 指向自定义二进制，请先执行 `sing-box version | grep -F with_v2ray_api`
+- 在线用户状态基于最近流量增量推断，不等同于当前 TCP 连接列表
+- 流量配额按客户端上传加下载总量计算，也就是 `client.up + client.down`；入站、出站和用户统计是同一份流量的不同视图，不会相互累加用于配额
 
 ## 使用建议
 

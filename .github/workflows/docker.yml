@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SING_BOX_VERSION: "1.13.5"
+  SING_BOX_VERSION: "1.13.11"
   IMAGE_NAME: ghcr.io/ytjungle666/yt-home
 
 jobs:

@@ -2,6 +2,10 @@
 
 set -eu
 
+# Fallback helper for manually fetching upstream release assets. Normal YT-HOME
+# packaging uses scripts/build-sing-box.sh because official sing-box assets
+# usually do not include the with_v2ray_api build tag required for stats.
+
 normalize_os() {
   case "$1" in
     linux|Linux) printf '%s\n' "linux" ;;
@@ -32,7 +36,7 @@ normalize_arch() {
 OS_INPUT="${1:-$(uname -s)}"
 ARCH_INPUT="${2:-$(uname -m)}"
 OUTPUT_DIR="${3:-.}"
-VERSION="${4:-${SING_BOX_VERSION:-1.13.5}}"
+VERSION="${4:-${SING_BOX_VERSION:-1.13.11}}"
 
 OS="$(normalize_os "$OS_INPUT")"
 ARCH="$(normalize_arch "$ARCH_INPUT")"

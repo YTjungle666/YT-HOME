@@ -23,7 +23,8 @@ jobs:
       NPM_CONFIG_FUND: "false"
       NPM_CONFIG_UPDATE_NOTIFIER: "false"
       RUST_TOOLCHAIN: "1.88.0"
-      SING_BOX_VERSION: "1.13.5"
+      GO_VERSION: "1.24.7"
+      SING_BOX_VERSION: "1.13.11"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
@@ -40,10 +41,15 @@ jobs:
           rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component rustfmt --component clippy
           rustup default "${RUST_TOOLCHAIN}"
 
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
       - name: Install musl toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools
+          sudo apt-get install -y musl-tools file python3-requests unzip xz-utils gnupg
           rustup target add x86_64-unknown-linux-musl
 
       - name: Install cargo-audit and cargo-deny
@@ -72,7 +78,8 @@ jobs:
 
       - name: Runtime smoke test
         run: |
-          sh ./scripts/fetch-sing-box.sh linux amd64 "$RUNNER_TEMP/sing-box" "$SING_BOX_VERSION"
+          sh ./scripts/build-sing-box.sh linux amd64 "$RUNNER_TEMP/sing-box" "$SING_BOX_VERSION"
+          "$RUNNER_TEMP/sing-box/sing-box" version | grep -F with_v2ray_api
           YTHOME_SING_BOX_BIN="$RUNNER_TEMP/sing-box/sing-box" \
           YTHOME_WEB_DIR="$GITHUB_WORKSPACE/frontend/dist" \
           YTHOME_DB_FOLDER="$RUNNER_TEMP/YTHOME-db" \
@@ -95,6 +102,7 @@ jobs:
       - name: Docker build smoke test
         run: |
           docker build --build-arg SING_BOX_VERSION="${SING_BOX_VERSION}" -t yt-home-ci .
+          docker run --rm yt-home-ci /app/sing-box version | grep -F with_v2ray_api
           docker rm -f yt-home-ci-test >/dev/null 2>&1 || true
           docker run -d --name yt-home-ci-test -p 18081:80 yt-home-ci
           trap 'docker rm -f yt-home-ci-test >/dev/null 2>&1 || true' EXIT

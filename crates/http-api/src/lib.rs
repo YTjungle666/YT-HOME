@@ -205,6 +205,8 @@ async fn load_data(
     let mut payload =
         state.settings.load_dashboard_data(&host, include_full_payload).await.map_err(api_error)?;
     payload["onlines"] = state.stats.get_onlines().await.map_err(api_error)?;
+    let traffic_age = state.settings.traffic_age().await.unwrap_or_default();
+    payload["trafficStatus"] = state.stats.traffic_status(traffic_age, &state.core).await;
 
     if state.core.status().await["running"] == Value::Bool(false) {
         let logs = state.core.logs(1, None).await;

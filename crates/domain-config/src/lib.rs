@@ -773,16 +773,26 @@ fn fixed_runtime_outbounds() -> Vec<Value> {
 }
 
 fn runtime_stats_api_listen() -> Option<String> {
-    let listen = env::var(V2RAY_API_LISTEN_ENV)
-        .ok()
-        .map(|value| value.trim().to_string())
+    runtime_stats_api_listen_for_support(
+        env::var(V2RAY_API_LISTEN_ENV).ok().as_deref(),
+        sing_box_supports_v2ray_api(),
+    )
+}
+
+fn runtime_stats_api_listen_for_support(
+    raw_listen: Option<&str>,
+    supports_v2ray_api: bool,
+) -> Option<String> {
+    let listen = raw_listen
+        .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| DEFAULT_V2RAY_API_LISTEN.to_string());
+        .unwrap_or(DEFAULT_V2RAY_API_LISTEN)
+        .to_string();
     if matches!(listen.to_ascii_lowercase().as_str(), "0" | "off" | "false" | "disabled") {
         return None;
     }
 
-    sing_box_supports_v2ray_api().then_some(listen)
+    supports_v2ray_api.then_some(listen)
 }
 
 fn sing_box_supports_v2ray_api() -> bool {
@@ -799,6 +809,10 @@ fn detect_sing_box_v2ray_api_support() -> bool {
     };
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    sing_box_version_output_supports_v2ray_api(&stdout, &stderr)
+}
+
+fn sing_box_version_output_supports_v2ray_api(stdout: &str, stderr: &str) -> bool {
     stdout.contains("with_v2ray_api") || stderr.contains("with_v2ray_api")
 }
 
@@ -1075,7 +1089,8 @@ mod tests {
     use super::{
         SettingsService, apply_runtime_defaults, apply_runtime_v2ray_api_defaults,
         build_runtime_inbound_users, fixed_runtime_outbounds, inject_private_network_guards,
-        parse_json_object, runtime_inbound_to_value,
+        parse_json_object, runtime_inbound_to_value, runtime_stats_api_listen_for_support,
+        sing_box_version_output_supports_v2ray_api,
     };
     use infra_db::connect_sqlite;
     use serde_json::{Map, Value, json};
@@ -1309,6 +1324,34 @@ mod tests {
         assert_eq!(root["experimental"]["v2ray_api"]["stats"]["inbounds"], json!(["home-in"]));
         assert_eq!(root["experimental"]["v2ray_api"]["stats"]["outbounds"], json!(["direct"]));
         assert_eq!(root["experimental"]["v2ray_api"]["stats"]["users"], json!(["demo"]));
+    }
+
+    #[test]
+    fn runtime_v2ray_api_listen_requires_capable_binary_and_honors_off_switch() {
+        assert_eq!(
+            runtime_stats_api_listen_for_support(None, true),
+            Some("127.0.0.1:21085".to_string())
+        );
+        assert_eq!(
+            runtime_stats_api_listen_for_support(Some("127.0.0.1:22000"), true),
+            Some("127.0.0.1:22000".to_string())
+        );
+        assert_eq!(runtime_stats_api_listen_for_support(None, false), None);
+        assert_eq!(runtime_stats_api_listen_for_support(Some("off"), true), None);
+        assert_eq!(runtime_stats_api_listen_for_support(Some("disabled"), true), None);
+    }
+
+    #[test]
+    fn sing_box_version_output_detects_v2ray_api_tag() {
+        assert!(sing_box_version_output_supports_v2ray_api(
+            "sing-box version 1.13.11\nTags: with_quic with_v2ray_api",
+            ""
+        ));
+        assert!(sing_box_version_output_supports_v2ray_api("", "with_v2ray_api"));
+        assert!(!sing_box_version_output_supports_v2ray_api(
+            "sing-box version 1.13.11\nTags: with_quic",
+            ""
+        ));
     }
 
     #[tokio::test]

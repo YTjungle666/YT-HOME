@@ -7,6 +7,7 @@ This repository now ships a Rust backend workspace and a Vue 3 frontend. Contrib
 - Rust `1.88.0` with `rustfmt` and `clippy`
 - Node.js `24`
 - `npm`
+- Go `1.24.x` (or allow `scripts/build-sing-box.sh` to select the upstream `go.mod` toolchain with `GOTOOLCHAIN`) and `git` for building the bundled `sing-box`; the default Linux build is purego/CGO-disabled. `file`, `gnupg`, `unzip`, `xz-utils`, and Python 3 with `requests` are only needed when explicitly building Linux `SING_BOX_LINUX_LIBC=musl`/`glibc` with the upstream naive/cronet CGO toolchain.
 - Docker or Podman if you want to validate container builds
 
 ## Local Setup
@@ -25,12 +26,15 @@ npm run build
 cd ..
 ```
 
-Build the Rust backend and fetch the matching `sing-box` runtime:
+Build the Rust backend and source-build the matching stats-capable `sing-box` runtime:
 
 ```bash
 cargo build --release -p app
-sh ./scripts/fetch-sing-box.sh linux amd64 ./target/release 1.13.5
+sh ./scripts/build-sing-box.sh linux amd64 ./target/release 1.13.11
+./target/release/sing-box version | grep -F with_v2ray_api
 ```
+
+`scripts/fetch-sing-box.sh` remains available only as a manual fallback for upstream release assets. Normal YT-HOME packaging must use `scripts/build-sing-box.sh`, because official `sing-box` binaries usually do not include the `with_v2ray_api` tag required for runtime traffic stats.
 
 For a local debug run:
 
@@ -66,6 +70,12 @@ cargo test --workspace --all-features
 cargo audit
 cargo deny check
 ```
+
+## Runtime Stats Contract
+
+YT-HOME injects `experimental.v2ray_api` only when the resolved `sing-box` binary reports `with_v2ray_api`. The default listen address is local-only `127.0.0.1:21085`; set `YTHOME_V2RAY_API_LISTEN=off`, `0`, `false`, or `disabled` to turn injection off. If you override `YTHOME_SING_BOX_BIN`, verify the binary with `sing-box version | grep -F with_v2ray_api`.
+
+Stats store upload and download separately. Quota, used percentage, over-limit checks, and total account usage count client upload plus download only; do not add user, inbound, and outbound stats together because those are separate views of the same traffic.
 
 ## Project Structure
 

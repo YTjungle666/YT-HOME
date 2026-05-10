@@ -27,12 +27,23 @@ RUN if [ -x /app/packaging/docker/YTHOME ]; then \
       cp /app/target/x86_64-unknown-linux-musl/release/app /app/YTHOME; \
     fi
 
-FROM alpine:3.22 AS singbox-fetcher
-ARG SING_BOX_VERSION=1.13.5
-WORKDIR /fetch
-RUN apk add --no-cache ca-certificates wget tar
-COPY scripts/fetch-sing-box.sh /usr/local/bin/fetch-sing-box
-RUN sh /usr/local/bin/fetch-sing-box linux amd64 /opt/sing-box "${SING_BOX_VERSION}"
+FROM golang:1.24-bookworm AS singbox-builder
+ARG SING_BOX_VERSION=1.13.11
+ARG SING_BOX_LINUX_LIBC=purego
+WORKDIR /build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git bash curl file python3 python3-requests unzip xz-utils gnupg \
+    && rm -rf /var/lib/apt/lists/*
+COPY scripts/build-sing-box.sh /usr/local/bin/build-sing-box
+COPY packaging/ ./packaging/
+RUN if [ -x /build/packaging/docker/sing-box ]; then \
+      mkdir -p /opt/sing-box; \
+      cp /build/packaging/docker/sing-box /opt/sing-box/sing-box; \
+    else \
+      SING_BOX_LINUX_LIBC="${SING_BOX_LINUX_LIBC}" sh /usr/local/bin/build-sing-box linux amd64 /opt/sing-box "${SING_BOX_VERSION}"; \
+    fi; \
+    /opt/sing-box/sing-box version | grep -F -q "${SING_BOX_VERSION}"; \
+    /opt/sing-box/sing-box version | grep -F -q with_v2ray_api
 
 FROM alpine:3.22
 LABEL org.opencontainers.image.title="YT-HOME"
@@ -42,11 +53,11 @@ LABEL org.opencontainers.image.licenses="GPL-3.0-only"
 ENV YTHOME_WEB_DIR=/app/web
 ENV YTHOME_MIGRATIONS_DIR=/app/migrations
 WORKDIR /app
-RUN apk add --no-cache ca-certificates tzdata openrc openssh-server openssh-keygen \
+RUN apk add --no-cache ca-certificates tzdata gcompat openrc openssh-server openssh-keygen \
     && mkdir -p /app/db
 COPY --chmod=755 scripts/container-init.sh /usr/local/bin/container-init
 COPY --chmod=755 --from=backend-builder /app/YTHOME /app/YTHOME
-COPY --chmod=755 --from=singbox-fetcher /opt/sing-box/ /app/
+COPY --chmod=755 --from=singbox-builder /opt/sing-box/ /app/
 COPY --from=front-builder /app/frontend/dist/ /app/web/
 COPY crates/infra-db/migrations/ /app/migrations/
 COPY --chmod=755 packaging/openrc/YTHOME /etc/init.d/YT-HOME

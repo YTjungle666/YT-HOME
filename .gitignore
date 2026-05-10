@@ -8,6 +8,7 @@
 /sing-box
 /libcronet.so
 /packaging/docker/YTHOME
+/packaging/docker/sing-box
 /target/
 /migrations/
 /web/
@@ -24,6 +25,7 @@
 # Log files
 *.log*
 .cache
+.hermes/
 
 # Windows build artifacts
 *.exe
