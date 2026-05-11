@@ -184,6 +184,8 @@ export default {
     sessionAge: "会话超时时限",
     trafficAge: "流量过期时限",
     timeLoc: "时区",
+    timeLocHint: "点击右侧按钮读取部署环境时区，保存后生效",
+    detectTimeLoc: "获取部署时区",
     subEncode: "启用 Base64 编码",
     subInfo: "启用用户信息",
     path: "默认路径",

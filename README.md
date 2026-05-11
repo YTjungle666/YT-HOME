@@ -35,7 +35,7 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v3.0.0`
+- 当前版本：`v3.0.1`
 - 当前发布平台：`linux/amd64`
 - 默认 `sing-box`：`1.13.11`，源码构建并启用 `with_v2ray_api`
 
@@ -52,7 +52,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v3.0.0
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v3.0.1
 ```
 
 说明：

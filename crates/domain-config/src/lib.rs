@@ -1,7 +1,7 @@
 mod backup;
 mod save;
 
-use std::{collections::BTreeMap, env, path::PathBuf, process::Command, sync::OnceLock};
+use std::{collections::BTreeMap, env, fs, path::PathBuf, process::Command, sync::OnceLock};
 
 use infra_db::Db;
 use serde_json::{Map, Value, json};
@@ -28,7 +28,13 @@ impl SettingsService {
     }
 
     pub async fn ensure_defaults(&self) -> AppResult<()> {
+        let detected_time_location = detect_deployment_timezone();
         for (key, value) in default_settings() {
+            let value = if key == "timeLocation" {
+                detected_time_location.as_deref().unwrap_or(value)
+            } else {
+                value
+            };
             sqlx::query("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)")
                 .bind(key)
                 .bind(value)
@@ -63,6 +69,12 @@ impl SettingsService {
         }
 
         Ok(result)
+    }
+
+    pub fn deployment_timezone(&self) -> AppResult<String> {
+        detect_deployment_timezone().ok_or_else(|| {
+            AppError::NotFound("deployment timezone could not be detected".to_string())
+        })
     }
 
     pub async fn get_string(&self, key: &str) -> AppResult<String> {
@@ -845,6 +857,66 @@ fn resolve_sing_box_binary_for_config() -> Option<PathBuf> {
     })
 }
 
+fn detect_deployment_timezone() -> Option<String> {
+    env::var("TZ")
+        .ok()
+        .and_then(|value| normalize_timezone_candidate(&value))
+        .or_else(detect_timezone_from_etc_timezone)
+        .or_else(detect_timezone_from_localtime_symlink)
+        .or_else(detect_timezone_from_timedatectl)
+}
+
+fn detect_timezone_from_etc_timezone() -> Option<String> {
+    fs::read_to_string("/etc/timezone")
+        .ok()
+        .and_then(|value| value.lines().next().and_then(normalize_timezone_candidate))
+}
+
+fn detect_timezone_from_localtime_symlink() -> Option<String> {
+    fs::read_link("/etc/localtime")
+        .ok()
+        .and_then(|path| timezone_from_zoneinfo_path(&path.to_string_lossy()))
+}
+
+fn detect_timezone_from_timedatectl() -> Option<String> {
+    let output =
+        Command::new("timedatectl").args(["show", "-p", "Timezone", "--value"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    normalize_timezone_candidate(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn normalize_timezone_candidate(value: &str) -> Option<String> {
+    let value = value.trim().trim_start_matches(':').trim();
+    if value.is_empty() {
+        return None;
+    }
+    if value.starts_with('/') {
+        return timezone_from_zoneinfo_path(value);
+    }
+
+    let value = value.strip_prefix("posix/").unwrap_or(value);
+    let value = value.strip_prefix("right/").unwrap_or(value);
+    if value.eq_ignore_ascii_case("localtime")
+        || value.contains("..")
+        || value.chars().any(char::is_whitespace)
+        || !value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '/' | '_' | '-' | '+' | '.')
+        })
+    {
+        return None;
+    }
+
+    Some(value.to_string())
+}
+
+fn timezone_from_zoneinfo_path(value: &str) -> Option<String> {
+    let marker = "zoneinfo/";
+    let start = value.find(marker)? + marker.len();
+    normalize_timezone_candidate(&value[start..])
+}
+
 fn client_to_value(row: ClientRow) -> AppResult<Value> {
     Ok(json!({
         "id": row.id,
@@ -1089,8 +1161,9 @@ mod tests {
     use super::{
         SettingsService, apply_runtime_defaults, apply_runtime_v2ray_api_defaults,
         build_runtime_inbound_users, fixed_runtime_outbounds, inject_private_network_guards,
-        parse_json_object, runtime_inbound_to_value, runtime_stats_api_listen_for_support,
-        sing_box_version_output_supports_v2ray_api,
+        normalize_timezone_candidate, parse_json_object, runtime_inbound_to_value,
+        runtime_stats_api_listen_for_support, sing_box_version_output_supports_v2ray_api,
+        timezone_from_zoneinfo_path,
     };
     use infra_db::connect_sqlite;
     use serde_json::{Map, Value, json};
@@ -1144,6 +1217,34 @@ mod tests {
         {
             sqlx::query(statement).execute(pool).await.expect("run schema statement");
         }
+    }
+
+    #[test]
+    fn timezone_candidates_are_normalized_safely() {
+        assert_eq!(
+            normalize_timezone_candidate(" Asia/Singapore\n"),
+            Some("Asia/Singapore".to_string())
+        );
+        assert_eq!(
+            normalize_timezone_candidate(":/usr/share/zoneinfo/Europe/Berlin"),
+            Some("Europe/Berlin".to_string())
+        );
+        assert_eq!(
+            normalize_timezone_candidate("posix/America/New_York"),
+            Some("America/New_York".to_string())
+        );
+        assert_eq!(normalize_timezone_candidate("../Asia/Singapore"), None);
+        assert_eq!(normalize_timezone_candidate("Asia/Singapore malicious"), None);
+        assert_eq!(normalize_timezone_candidate("localtime"), None);
+    }
+
+    #[test]
+    fn timezone_is_extracted_from_zoneinfo_symlink() {
+        assert_eq!(
+            timezone_from_zoneinfo_path("/usr/share/zoneinfo/Asia/Singapore"),
+            Some("Asia/Singapore".to_string())
+        );
+        assert_eq!(timezone_from_zoneinfo_path("/etc/localtime"), None);
     }
 
     #[test]

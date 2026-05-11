@@ -58,7 +58,7 @@ pub fn default_settings() -> BTreeMap<&'static str, &'static str> {
         ("subShowInfo", "false"),
         ("subURI", ""),
         ("subUpdates", "12"),
-        ("timeLocation", "Asia/Tehran"),
+        ("timeLocation", "UTC"),
         ("trafficAge", "30"),
         ("version", APP_VERSION),
         ("webCertFile", ""),

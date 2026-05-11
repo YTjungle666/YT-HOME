@@ -69,7 +69,27 @@
               ></v-text-field>
           </v-col>
           <v-col cols="12" sm="6" md="4">
-            <v-text-field v-model="settings.timeLocation" :label="$t('setting.timeLoc')" hide-details></v-text-field>
+            <v-text-field
+              v-model="settings.timeLocation"
+              :label="$t('setting.timeLoc')"
+              :hint="$t('setting.timeLocHint')"
+              persistent-hint
+              hide-details="auto">
+              <template v-slot:append-inner>
+                <v-tooltip :text="$t('setting.detectTimeLoc')">
+                  <template v-slot:activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      icon="mdi-crosshairs-gps"
+                      size="small"
+                      variant="text"
+                      :loading="timezoneLoading"
+                      @click.stop="detectTimeLocation"
+                    ></v-btn>
+                  </template>
+                </v-tooltip>
+              </template>
+            </v-text-field>
           </v-col>
         </v-row>
       </v-window-item>
@@ -150,6 +170,7 @@ import SubClashExtVue from '@/components/SubClashExt.vue'
 import { push } from 'notivue'
 const tab = ref("t1")
 const loading:Ref = inject('loading')?? ref(false)
+const timezoneLoading = ref(false)
 const oldSettings = ref({})
 
 const settings = ref({
@@ -162,7 +183,7 @@ const settings = ref({
   webURI: "",
 	sessionMaxAge: "0",
   trafficAge: "30",
-	timeLocation: "Asia/Tehran",
+	timeLocation: "UTC",
   subListen: "",
 	subPort: "2096",
 	subPath: "/sub/",
@@ -209,6 +230,20 @@ const save = async () => {
     setData(msg.obj.settings)
   }
   loading.value = false
+}
+
+const detectTimeLocation = async () => {
+  timezoneLoading.value = true
+  const msg = await HttpUtils.get('api/timezone')
+  timezoneLoading.value = false
+  if (msg.success && msg.obj?.timeLocation) {
+    settings.value.timeLocation = msg.obj.timeLocation
+    push.success({
+      title: i18n.global.t('success'),
+      duration: 5000,
+      message: i18n.global.t('setting.detectTimeLoc') + `: ${msg.obj.timeLocation}`
+    })
+  }
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))

@@ -52,6 +52,7 @@ pub fn router(
         .route("/api/load", get(load_data))
         .route("/api/users", get(get_users))
         .route("/api/settings", get(get_settings))
+        .route("/api/timezone", get(get_deployment_timezone))
         .route("/api/status", get(get_status))
         .route("/api/stats", get(get_stats))
         .route("/api/logs", get(get_logs))
@@ -234,6 +235,17 @@ async fn get_settings(
     let _user = current_user(&state, &jar).await?;
     let settings = state.settings.public_settings().await.map_err(api_error)?;
     Ok(Json(ApiMessage::success(json!(settings))))
+}
+
+async fn get_deployment_timezone(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Result<Json<ApiMessage<Value>>, Json<ApiMessage<Value>>> {
+    let _user = current_user(&state, &jar).await?;
+    let time_location = state.settings.deployment_timezone().map_err(api_error)?;
+    Ok(Json(ApiMessage::success(json!({
+        "timeLocation": time_location,
+    }))))
 }
 
 async fn get_status(

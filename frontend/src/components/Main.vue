@@ -6,11 +6,6 @@
     <v-responsive :class="reloadItems.length>0 ? 'fill-height text-center' : 'align-center'" >
       <v-row class="d-flex align-center justify-center">
         <v-col cols="auto">
-          <v-img src="@/assets/logo.svg" :width="reloadItems.length>0 ? 100 : 200"></v-img>
-        </v-col>
-      </v-row>
-      <v-row class="d-flex align-center justify-center">
-        <v-col cols="auto">
           <v-dialog v-model="menu" :close-on-content-click="false" transition="scale-transition" max-width="800">
             <template v-slot:activator="{ props }">
               <v-btn v-bind="props" hide-details variant="tonal" elevation="3">{{ $t('main.tiles') }} <v-icon icon="mdi-star-plus" /></v-btn>
