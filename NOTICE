@@ -1,11 +1,19 @@
 YT-HOME License Notice
 ======================
 
-YT-HOME is a refactored Rust/Vue control panel for sing-box based home
-access. The YT-HOME project code is licensed under GPL-3.0-only.
+YT-HOME is a Rust/Vue control panel for sing-box based home access. The
+combined YT-HOME project is distributed under GPL-3.0-only.
 
 The root LICENSE file contains the unmodified GNU General Public License
-version 3 text so GitHub can identify the repository license correctly.
+version 3 text so GitHub and downstream users can identify the repository
+license correctly.
+
+Portions of the Vue frontend and operational scripts were derived from the
+GPL-3.0-licensed S-UI / S-UI frontend project history. Those inherited
+portions remain under GPL terms, and YT-HOME's modifications and additions
+are distributed with the combined work under GPL-3.0-only.
 
 Third-party components, vendored crates, patches, fonts, frontend
-dependencies, and sing-box retain their own license terms.
+dependencies, and sing-box retain their own license terms. Review their
+upstream license files and package metadata before redistributing modified
+bundles.

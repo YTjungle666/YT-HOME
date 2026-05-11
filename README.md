@@ -1,9 +1,9 @@
 # YT-HOME
 
-![Release](https://img.shields.io/github/v/release/YTjungle666/YT-HOME?display_name=tag)
-![CI](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/ci.yml?branch=main&label=ci)
-![Docker](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/docker.yml?branch=main&label=docker)
-![License](https://img.shields.io/github/license/YTjungle666/YT-HOME)
+[![Release](https://img.shields.io/github/v/release/YTjungle666/YT-HOME?display_name=tag)](https://github.com/YTjungle666/YT-HOME/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/ci.yml?branch=main&label=ci)](https://github.com/YTjungle666/YT-HOME/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/github/actions/workflow/status/YTjungle666/YT-HOME/docker.yml?branch=main&label=docker)](https://github.com/YTjungle666/YT-HOME/actions/workflows/docker.yml)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 
 `YT-HOME` 是一个面向家庭网络回家场景的 `sing-box` 控制面板。
 它把入站、客户端、二维码、订阅、TLS / Reality、运行状态和访问边界统一到一个中文面板里，适合部署在家庭服务器、`PVE`、`NAS` 和小主机上。
@@ -35,7 +35,7 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v2.0.12`
+- 当前版本：`v3.0.0`
 - 当前发布平台：`linux/amd64`
 - 默认 `sing-box`：`1.13.11`，源码构建并启用 `with_v2ray_api`
 
@@ -52,7 +52,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v2.0.12
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v3.0.0
 ```
 
 说明：
@@ -223,7 +223,7 @@ docker compose exec YT-HOME /app/YTHOME admin -show
 ## 使用建议
 
 - 面板保留主页、用户、入站、TLS、订阅、设置和账号安全等家庭回家常用功能
-- 出站、节点、服务、基础配置、路由和 DNS 等历史 S-UI 页面已从前端隐藏，对应 sing-box 运行配置由后端写入安全默认值
+- 出站、节点、服务、基础配置、路由和 DNS 等历史高级配置页面已从前端隐藏，对应 sing-box 运行配置由后端写入安全默认值
 - 手机和下游客户端订阅、链接导入、二维码流程仍然保留
 - 面板部署在内网服务器，公网只开放必要端口
 - 只有确实需要回家访问的入站才开启“代理回家”
@@ -232,4 +232,6 @@ docker compose exec YT-HOME /app/YTHOME admin -show
 
 ## 许可证
 
-`YT-HOME` 是基于家庭回家访问场景重新整理的 Rust / Vue 项目，项目本体按 `GPL-3.0-only` 发布。第三方依赖、`sing-box` 以及 vendor/patch 目录中的组件继续遵循各自许可证。
+`YT-HOME` 是基于家庭回家访问场景重新整理的 Rust / Vue 项目，项目本体按 `GPL-3.0-only` 发布。仓库根目录保留未经修改的 GPLv3 正文，方便 GitHub 和下游用户识别授权。
+
+前端与运维脚本中继承自 GPL 项目历史的部分继续按 GPL 授权，YT-HOME 的新增与整理内容也随整个项目按 `GPL-3.0-only` 分发；第三方依赖、字体、`sing-box` 以及 `vendor/`、`patches/` 目录中的组件继续遵循各自许可证。详细说明见 `NOTICE`。

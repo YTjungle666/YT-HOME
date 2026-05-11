@@ -45,11 +45,7 @@ YTHOME_WEB_DIR=frontend/dist \
 cargo run -p app
 ```
 
-If you prefer the bundled helper:
-
-```bash
-./runSUI.sh
-```
+Use the explicit environment variables above for local debug runs. Do not rely on legacy helper scripts when validating new changes.
 
 ## Quality Gates
 
