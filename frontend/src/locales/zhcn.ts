@@ -183,6 +183,7 @@ export default {
     webUri: "面板 URI",
     sessionAge: "会话超时时限",
     trafficAge: "流量过期时限",
+    changeRetention: "变更历史保留上限",
     timeLoc: "时区",
     timeLocHint: "点击右侧按钮读取部署环境时区，保存后生效",
     detectTimeLoc: "获取部署时区",

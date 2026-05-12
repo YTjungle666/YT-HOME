@@ -70,6 +70,16 @@
           </v-col>
           <v-col cols="12" sm="6" md="4">
             <v-text-field
+              type="number"
+              v-model.number="changeRetention"
+              min="0"
+              :label="$t('setting.changeRetention')"
+              :suffix="$t('count')"
+              hide-details
+              ></v-text-field>
+          </v-col>
+          <v-col cols="12" sm="6" md="4">
+            <v-text-field
               v-model="settings.timeLocation"
               :label="$t('setting.timeLoc')"
               :hint="$t('setting.timeLocHint')"
@@ -183,6 +193,7 @@ const settings = ref({
   webURI: "",
 	sessionMaxAge: "0",
   trafficAge: "30",
+  changeRetention: "1000",
 	timeLocation: "UTC",
   subListen: "",
 	subPort: "2096",
@@ -301,6 +312,11 @@ const sessionMaxAge = computed({
 const trafficAge = computed({
   get: () => { return settings.value.trafficAge.length>0 ? parseInt(settings.value.trafficAge) : 0 },
   set: (v:number) => { settings.value.trafficAge = v>0 ? v.toString() : "0" }
+})
+
+const changeRetention = computed({
+  get: () => { return settings.value.changeRetention.length>0 ? parseInt(settings.value.changeRetention) : 1000 },
+  set: (v:number) => { settings.value.changeRetention = v>0 ? v.toString() : "0" }
 })
 
 const subPort = computed({

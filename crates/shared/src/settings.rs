@@ -44,6 +44,7 @@ pub const DEFAULT_CONFIG_JSON: &str = r#"{
 
 pub fn default_settings() -> BTreeMap<&'static str, &'static str> {
     BTreeMap::from([
+        ("changeRetention", "1000"),
         ("config", DEFAULT_CONFIG_JSON),
         ("sessionMaxAge", "0"),
         ("subCertFile", ""),

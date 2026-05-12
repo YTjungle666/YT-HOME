@@ -11,7 +11,10 @@ use shared::{
 use sqlx::{Sqlite, Transaction};
 use time::OffsetDateTime;
 
-use super::{SettingsService, parse_i64_array, parse_json_text};
+use super::{
+    DEFAULT_CHANGE_RETENTION_LIMIT, SettingsService, normalize_change_retention_limit,
+    parse_i64_array, parse_json_text,
+};
 
 impl SettingsService {
     pub async fn save_managed_object(
@@ -134,6 +137,30 @@ impl SettingsService {
         .bind(key)
         .bind(action)
         .bind(serde_json::to_string(obj)?)
+        .execute(&mut **tx)
+        .await?;
+        let limit = Self::change_retention_limit_tx(tx).await?;
+        Self::prune_changes_tx(tx, limit).await?;
+        Ok(())
+    }
+
+    async fn change_retention_limit_tx(tx: &mut Transaction<'_, Sqlite>) -> AppResult<i64> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value FROM settings WHERE key = 'changeRetention' LIMIT 1",
+        )
+        .fetch_optional(&mut **tx)
+        .await?
+        .unwrap_or_else(|| DEFAULT_CHANGE_RETENTION_LIMIT.to_string());
+        let limit =
+            value.parse::<i64>().map_err(|error| AppError::Validation(error.to_string()))?;
+        Ok(normalize_change_retention_limit(limit))
+    }
+
+    async fn prune_changes_tx(tx: &mut Transaction<'_, Sqlite>, limit: i64) -> AppResult<()> {
+        sqlx::query(
+            "DELETE FROM changes WHERE id NOT IN (SELECT id FROM changes ORDER BY id DESC LIMIT ?)",
+        )
+        .bind(limit)
         .execute(&mut **tx)
         .await?;
         Ok(())

@@ -35,7 +35,7 @@
 - 订阅地址：`http://<你的地址>:2096/sub/`
 - 默认账号：`admin`
 - 默认密码：`admin`
-- 当前版本：`v3.0.1`
+- 当前版本：`v3.0.2`
 - 当前发布平台：`linux/amd64`
 - 默认 `sing-box`：`1.13.11`，源码构建并启用 `with_v2ray_api`
 
@@ -52,7 +52,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/insta
 安装指定版本：
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v3.0.1
+bash <(curl -Ls https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/install.sh) v3.0.2
 ```
 
 说明：
@@ -90,6 +90,8 @@ mkdir -p yt-home && cd yt-home
 curl -LO https://raw.githubusercontent.com/YTjungle666/YT-HOME/main/docker-compose.yml
 docker compose up -d
 ```
+
+仓库提供的 `docker-compose.yml` 已为容器 stdout/stderr 设置 `json-file` 日志轮转，默认单文件 `10m`、保留 `3` 个文件，避免日志完全依赖宿主机 Docker daemon 默认策略无限增长。
 
 ### 容器 SSH 访问
 
@@ -219,6 +221,7 @@ docker compose exec YT-HOME /app/YTHOME admin -show
 - 官方 `sing-box` release 二进制通常没有 `with_v2ray_api`；如果用 `YTHOME_SING_BOX_BIN` 指向自定义二进制，请先执行 `sing-box version | grep -F with_v2ray_api`
 - 在线用户状态基于最近流量增量推断，不等同于当前 TCP 连接列表
 - 流量配额按客户端上传加下载总量计算，也就是 `client.up + client.down`；入站、出站和用户统计是同一份流量的不同视图，不会相互累加用于配额
+- 设置页的“变更历史保留上限”默认保留最新 `1000` 条变更记录；写入新变更后会自动删除更旧记录，设为 `0` 可不保留变更历史
 
 ## 使用建议
 

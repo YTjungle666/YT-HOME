@@ -15,7 +15,13 @@ use shared::{
 use time::OffsetDateTime;
 
 const DEFAULT_V2RAY_API_LISTEN: &str = "127.0.0.1:21085";
+pub(crate) const DEFAULT_CHANGE_RETENTION_LIMIT: i64 = 1000;
+pub(crate) const MAX_CHANGE_RETENTION_LIMIT: i64 = 100_000;
 const V2RAY_API_LISTEN_ENV: &str = "YTHOME_V2RAY_API_LISTEN";
+
+pub(crate) fn normalize_change_retention_limit(limit: i64) -> i64 {
+    limit.clamp(0, MAX_CHANGE_RETENTION_LIMIT)
+}
 
 #[derive(Clone)]
 pub struct SettingsService {
@@ -158,9 +164,17 @@ impl SettingsService {
     }
 
     pub async fn save_public_settings(&self, settings: &BTreeMap<String, String>) -> AppResult<()> {
+        let mut should_prune_changes = false;
+
         for (key, value) in settings {
             let normalized_value = if key == "webPath" || key == "subPath" {
                 normalize_path_setting(value)
+            } else if key == "changeRetention" {
+                let limit = value
+                    .parse::<i64>()
+                    .map_err(|error| AppError::Validation(error.to_string()))?;
+                should_prune_changes = true;
+                normalize_change_retention_limit(limit).to_string()
             } else {
                 value.clone()
             };
@@ -176,6 +190,10 @@ impl SettingsService {
                 .bind(key)
                 .execute(&self.pool)
                 .await?;
+        }
+
+        if should_prune_changes {
+            self.prune_changes().await?;
         }
 
         Ok(())
@@ -220,6 +238,10 @@ impl SettingsService {
             return Ok(true);
         };
 
+        if self.change_retention_limit().await? == 0 {
+            return Ok(true);
+        }
+
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM changes WHERE date_time > ?")
             .bind(last_update)
             .fetch_one(&self.pool)
@@ -244,6 +266,7 @@ impl SettingsService {
         .bind(serde_json::to_string(obj)?)
         .execute(&self.pool)
         .await?;
+        self.prune_changes().await?;
         Ok(())
     }
 
@@ -301,6 +324,29 @@ impl SettingsService {
 
     pub async fn traffic_age(&self) -> AppResult<i64> {
         self.get_int("trafficAge").await
+    }
+
+    pub async fn change_retention_limit(&self) -> AppResult<i64> {
+        let value = sqlx::query_scalar::<_, String>(
+            "SELECT value FROM settings WHERE key = 'changeRetention' LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .unwrap_or_else(|| DEFAULT_CHANGE_RETENTION_LIMIT.to_string());
+        let limit =
+            value.parse::<i64>().map_err(|error| AppError::Validation(error.to_string()))?;
+        Ok(normalize_change_retention_limit(limit))
+    }
+
+    pub async fn prune_changes(&self) -> AppResult<()> {
+        let limit = self.change_retention_limit().await?;
+        sqlx::query(
+            "DELETE FROM changes WHERE id NOT IN (SELECT id FROM changes ORDER BY id DESC LIMIT ?)",
+        )
+        .bind(limit)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     pub async fn sub_updates(&self) -> AppResult<i64> {
@@ -1217,6 +1263,64 @@ mod tests {
         {
             sqlx::query(statement).execute(pool).await.expect("run schema statement");
         }
+    }
+
+    #[tokio::test]
+    async fn record_change_prunes_old_rows_to_retention_limit() {
+        let (service, path) = test_settings_service().await;
+        let mut settings = BTreeMap::new();
+        settings.insert("changeRetention".to_string(), "3".to_string());
+        service.save_public_settings(&settings).await.expect("save retention limit");
+
+        for index in 0..5 {
+            service
+                .record_change(
+                    "tester",
+                    "clients",
+                    &format!("edit-{index}"),
+                    &json!({ "i": index }),
+                )
+                .await
+                .expect("record change");
+        }
+
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM changes")
+            .fetch_one(&service.pool)
+            .await
+            .expect("count changes");
+        assert_eq!(count, 3);
+
+        let rows = service.get_changes(None, None, 10).await.expect("get changes");
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].action, "edit-4");
+        assert_eq!(rows[1].action, "edit-3");
+        assert_eq!(rows[2].action, "edit-2");
+
+        service.pool.close().await;
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn zero_change_retention_prunes_history_but_keeps_refresh_safe() {
+        let (service, path) = test_settings_service().await;
+        let mut settings = BTreeMap::new();
+        settings.insert("changeRetention".to_string(), "0".to_string());
+        service.save_public_settings(&settings).await.expect("save retention limit");
+
+        service
+            .record_change("tester", "clients", "edit", &json!({ "i": 1 }))
+            .await
+            .expect("record change");
+
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM changes")
+            .fetch_one(&service.pool)
+            .await
+            .expect("count changes");
+        assert_eq!(count, 0);
+        assert!(service.has_changes_since(Some(i64::MAX)).await.expect("check changes"));
+
+        service.pool.close().await;
+        let _ = fs::remove_file(path);
     }
 
     #[test]
